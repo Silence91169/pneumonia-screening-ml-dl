@@ -1,0 +1,17 @@
+random_seed: 42
+
+paths:
+  raw_data: data/raw
+  processed_data: data/processed
+  results: results
+
+image_size:
+  height: 224
+  width: 224
+
+class_names:
+  - NORMAL
+  - PNEUMONIA
+
+positive_class: PNEUMONIA
+
