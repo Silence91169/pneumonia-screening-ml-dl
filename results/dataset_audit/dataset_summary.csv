@@ -1,0 +1,9 @@
+scope,split,class_name,count,percentage
+overall,all,NORMAL,1583,27.032104
+overall,all,PNEUMONIA,4273,72.967896
+split,train,NORMAL,1341,25.709356
+split,train,PNEUMONIA,3875,74.290644
+split,validation,NORMAL,8,50.0
+split,validation,PNEUMONIA,8,50.0
+split,test,NORMAL,234,37.5
+split,test,PNEUMONIA,390,62.5

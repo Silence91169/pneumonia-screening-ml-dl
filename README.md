@@ -63,7 +63,7 @@ Executed models will be evaluated using more than accuracy. Planned metrics and 
 │   └── README.md          # Dataset handling documentation
 ├── notebooks/             # Exploration and explanation notebooks
 ├── src/
-│   ├── data/              # Reusable data pipeline code
+│   ├── data/              # Reusable dataset-audit and data pipeline code
 │   ├── features/          # Reusable feature extraction code
 │   ├── models/            # Reusable model code
 │   ├── evaluation/        # Metrics and evaluation code
@@ -87,15 +87,22 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Dependencies have not been installed by this initialization task. Dataset setup is documented in `data/README.md` and must be performed separately in a later, explicitly authorized task.
+Dependencies are installed only through a user-controlled environment setup. Dataset placement and the read-only audit workflow are documented in `data/README.md`.
+
+To view the dataset-audit command options:
+
+```bash
+python3 scripts/audit_dataset.py --help
+```
+
+The audit is a forensic inventory and integrity check, not preprocessing. It does not resize, normalize, augment, relocate, or delete source images.
 
 ## Current project status
 
-**Foundation initialized.** Repository directories, documentation, a shared configuration file, package markers, ignore rules, and the minimal dependency declaration are present. Dataset acquisition, auditing, preprocessing, feature extraction, models, training, evaluation, explainability, and results are all **PLANNED** and have not been implemented.
+**Dataset audit complete.** The manually supplied canonical dataset under `data/raw/chest_xray/` contains 5,856 readable images. The reusable read-only audit found 30 within-split exact-duplicate groups affecting 62 files, no cross-split exact duplicates, and no conflicting-label duplicates. Raw data remains excluded from Git. Preprocessing, feature extraction, models, training, evaluation, explainability, and model results remain **PLANNED** and have not been implemented.
 
 ## Medical and research disclaimer
 
 **This project is an educational research prototype and is not intended for clinical diagnosis or medical decision-making.**
 
 Future dataset performance must not be presented as evidence of real-world clinical performance.
-

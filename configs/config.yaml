@@ -2,8 +2,10 @@ random_seed: 42
 
 paths:
   raw_data: data/raw
+  dataset: data/raw/chest_xray
   processed_data: data/processed
   results: results
+  dataset_audit: results/dataset_audit
 
 image_size:
   height: 224
@@ -14,4 +16,3 @@ class_names:
   - PNEUMONIA
 
 positive_class: PNEUMONIA
-

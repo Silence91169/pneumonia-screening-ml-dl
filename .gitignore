@@ -67,4 +67,9 @@ wandb/
 runs/
 
 # Keep lightweight result summaries under results/metrics trackable.
-
+# Detailed dataset-audit inventories are reproducible generated artifacts.
+results/dataset_audit/image_metadata.csv
+results/dataset_audit/duplicate_report.csv
+results/dataset_audit/cross_split_duplicates.csv
+results/dataset_audit/corrupt_files.csv
+results/dataset_audit/structure_issues.csv
