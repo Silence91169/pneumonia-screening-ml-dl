@@ -1,149 +1,221 @@
-# Pneumonia Screening Research Prototype via HOG-SVM and Transfer-Learned CNNs
+# Pneumonia Screening from Chest X-Rays using Machine Learning and Deep Learning
 
-## Project overview
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.15-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.8-F7931E?logo=scikitlearn&logoColor=white)](https://scikit-learn.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-Deployed-FF4B4B?logo=streamlit&logoColor=white)](https://pneumonia-detector-ml-dl.streamlit.app/)
+[![Tests](https://img.shields.io/badge/tests-59%20passed-2EA44F)](#verification)
 
-This repository contains an educational Machine Learning and Deep Learning research prototype that will compare handcrafted chest X-ray representations with transfer-learned convolutional neural network representations for binary pneumonia screening research.
+## [Launch the Live Demo](https://pneumonia-detector-ml-dl.streamlit.app/)
 
-The classical and CNN pipelines are implemented. The repository does not bundle the full raw dataset, so this checkout contains no reproducible held-out performance result and makes no accuracy claim.
+An end-to-end educational research project comparing handcrafted radiographic features with transfer learning for binary pneumonia screening. The repository contains three trained, validation-calibrated SVM pipelines; a trained ImageNet-pretrained ResNet18; real held-out evaluation artifacts; Grad-CAM explainability; automated tests; and a deployed Streamlit application.
 
-## Research question
+> **Medical disclaimer:** This is an educational research prototype, not a medical device. It must not be used for diagnosis, triage, treatment, patient management, or any other clinical decision.
 
-How do handcrafted HOG/LBP image representations with kernel-based SVM classifiers compare with transfer-learned CNN representations for binary pneumonia classification from chest X-rays?
+## Live application
 
-## Planned Phase 1 — Classical machine learning
+The deployed dashboard supports a bundled demonstration image or user upload, all four trained inference paths, an adjustable decision threshold, HOG/LBP feature exploration, verified test metrics, and ResNet18 Grad-CAM. Displayed probabilities are model outputs—not clinical certainty.
 
-Phase 1 is **PLANNED** and will establish classical baselines using:
+| Screening | Feature Lab |
+|---|---|
+| ![Deployed Screening dashboard](docs/images/deployed-screening-dashboard.jpg) | ![Deployed HOG and LBP Feature Lab](docs/images/deployed-feature-lab.jpg) |
+| **Model Performance** | **ResNet18 and Grad-CAM** |
+| ![Deployed verified model performance table](docs/images/deployed-model-performance.jpg) | ![Deployed ResNet18 prediction with aligned Grad-CAM](docs/images/deployed-gradcam-result.jpg) |
 
-- HOG with a Linear SVM
-- HOG with an RBF SVM
-- HOG plus optional LBP features with an SVM
+## System architecture
 
-Any feature scaling, dimensionality reduction, class weighting, and hyperparameter selection will be fitted or selected without using the final test set.
+```mermaid
+flowchart LR
+    A[Chest X-ray] --> B[Validate image]
+    B --> C[Resize to 224 x 224 grayscale]
+    C --> D{Inference path}
 
-## Planned Phase 2 — Deep learning
+    D --> E[HOG: 6,084 features]
+    D --> F[HOG + LBP: 6,094 features]
+    E --> G[Train-fitted StandardScaler]
+    F --> G
+    G --> H[Validation-calibrated Linear or RBF SVM]
 
-Phase 2 is **PLANNED** and will use ImageNet-pretrained transfer learning with:
+    D --> I[Convert grayscale to 3 channels]
+    I --> J[ImageNet normalization]
+    J --> K[ImageNet-pretrained ResNet18]
+    K --> L[Sigmoid pneumonia probability]
+    K --> M[Grad-CAM from final layer4 conv2]
 
-- ResNet18
-- MobileNetV2
-
-The planned sequence is to train a replaced classification head with a frozen backbone, then assess whether fine-tuning later layers with a smaller learning rate is justified. Validation data will guide model selection; test data will remain reserved for final evaluation.
-
-## Optional hybrid approach
-
-The hybrid experiment is **PLANNED AND OPTIONAL**. It will only be considered after the classical ML and transfer-learning baselines work correctly. The proposed approach concatenates HOG/LBP features with CNN embeddings before fitting a classifier such as an SVM.
-
-## Planned evaluation
-
-Executed models will be evaluated using more than accuracy. Planned metrics and analyses include:
-
-- Accuracy
-- Precision
-- Pneumonia recall / sensitivity
-- Specificity
-- F1 score
-- ROC-AUC
-- Confusion matrix
-- Probability calibration and calibration curves where applicable
-
-`PNEUMONIA` will be treated consistently as the positive class. No experimental results currently exist, and none are claimed in this repository.
-
-## Repository structure
-
-```text
-.
-├── README.md              # Project overview and setup guidance
-├── requirements.txt       # Minimal planned Python dependency stack
-├── configs/
-│   └── config.yaml        # Shared non-model project configuration
-├── data/
-│   ├── raw/               # Unmodified dataset files (Git-ignored)
-│   ├── processed/         # Derived dataset files (Git-ignored)
-│   └── README.md          # Dataset handling documentation
-├── notebooks/             # Exploration and explanation notebooks
-├── src/
-│   ├── data/              # Reusable dataset-audit and data pipeline code
-│   ├── features/          # Reusable feature extraction code
-│   ├── models/            # Reusable model code
-│   ├── evaluation/        # Metrics and evaluation code
-│   └── utils/             # Shared utilities
-├── scripts/               # Command-line workflow entry points
-├── results/
-│   ├── figures/           # Generated figures (Git-ignored)
-│   ├── metrics/           # Lightweight result summaries
-│   └── models/            # Model artifacts (Git-ignored)
-└── tests/                 # Automated tests
+    H --> N[Threshold-aware research prediction]
+    L --> N
+    M --> O[Aligned color attribution overlay]
+    N --> P[Streamlit dashboard]
+    O --> P
 ```
 
-## Setup
+## Verified held-out results
 
-Python environment creation and dependency installation are user-controlled steps. When setup is desired, a typical local workflow is:
+Every value in this table is read from the tracked real-evaluation JSON artifacts. All four models were evaluated on 624 held-out test images: 234 `NORMAL` and 390 `PNEUMONIA`. Pneumonia is the positive class.
+
+| Model | Accuracy | Precision | Sensitivity | Specificity | F1 | ROC-AUC | TN / FP / FN / TP |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| HOG + Linear SVM | 77.24% | 73.94% | 98.21% | 42.31% | 84.36% | 0.8766 | 99 / 135 / 7 / 383 |
+| HOG + RBF SVM | 77.56% | 73.67% | **99.74%** | 40.60% | 84.75% | 0.9234 | 95 / 139 / 1 / 389 |
+| HOG + LBP + RBF SVM | 77.56% | 73.67% | **99.74%** | 40.60% | 84.75% | 0.9235 | 95 / 139 / 1 / 389 |
+| **ResNet18** | **90.06%** | **88.50%** | 96.67% | **79.06%** | **92.40%** | **0.9551** | 185 / 49 / 13 / 377 |
+
+Sources: [`model_comparison.json`](results/metrics/model_comparison.json) and [`resnet18_test_metrics.json`](results/metrics/resnet18_test_metrics.json).
+
+### Interpreting the trade-off
+
+ResNet18 has the highest accuracy, precision, specificity, F1, balanced accuracy, and ROC-AUC. It is not best at every metric: both RBF SVMs achieve 99.74% sensitivity and miss only one pneumonia image, compared with ResNet18's 96.67% sensitivity and 13 false negatives. That sensitivity comes with approximately 40.60% specificity and 139 false positives. ResNet18 provides a substantially more balanced sensitivity-specificity profile, but the appropriate operating threshold depends on the application and cannot be selected from this single retrospective dataset alone.
+
+The Streamlit threshold changes only the displayed class. It does not change or recompute the underlying pneumonia probability. The decision rule is `pneumonia_probability >= threshold`.
+
+## Dataset and split policy
+
+The project uses the Kaggle [Chest X-Ray Images (Pneumonia)](https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia) dataset. Raw images are not redistributed in this repository.
+
+The downloaded dataset contained 5,856 readable JPEG images: 5,216 in the original training directory, 16 in the original validation directory, and 624 in the original test directory. Because the original validation split was too small for model selection, the modeling manifest excludes those 16 images, reproducibly partitions the original training directory, and preserves the original test directory untouched.
+
+| Modeling split | Normal | Pneumonia | Total |
+|---|---:|---:|---:|
+| Train | 1,140 | 3,292 | 4,432 |
+| Validation | 201 | 583 | 784 |
+| Test | 234 | 390 | 624 |
+
+The stored audit reports zero unreadable images, zero conflicting-label exact duplicates, and zero exact-hash overlap across modeling splits. Exact hashing does not detect near duplicates, and the public filenames do not provide authoritative patient identifiers; therefore, patient-level separation cannot be guaranteed. See [`data/README.md`](data/README.md) for dataset placement and audit details.
+
+## Methodology
+
+### Preprocessing
+
+- Validate input paths and supported image files.
+- Convert each X-ray to single-channel grayscale.
+- Resize to `224 × 224` pixels.
+- Encode `NORMAL = 0` and `PNEUMONIA = 1` consistently.
+- Keep train, validation, and test roles separate throughout training and evaluation.
+
+For ResNet18, the grayscale image is repeated across three channels and normalized with ImageNet mean and standard deviation. Training augmentation applies a small rotation and horizontal flip only to the training split.
+
+### Classical machine learning
+
+- **HOG:** 9 orientation bins, `16 × 16` pixels per cell, `2 × 2` cells per block, L2-Hys normalization, producing 6,084 features.
+- **LBP:** uniform LBP with `P=8` and `R=1`, producing a normalized 10-bin texture histogram.
+- **Scaling:** `StandardScaler` is fitted on training features only and then applied to validation and test features.
+- **Selection:** class-balanced Linear and RBF SVM hyperparameters are selected by stratified five-fold cross-validation on training data using balanced accuracy.
+- **Calibration:** the selected base estimator is fitted on training data; Platt sigmoid calibration uses validation data only.
+- **Evaluation:** calibrated artifacts are frozen before the test caches are opened.
+
+The combined pipeline concatenates scaled HOG and LBP representations. Training details and timings are recorded in [`classical_training.json`](results/metrics/classical_training.json).
+
+### Deep learning
+
+- ImageNet-pretrained ResNet18 with a frozen convolutional backbone.
+- Replaced binary classification head with dropout.
+- Weighted binary cross-entropy and AdamW optimization.
+- Validation-loss checkpointing with early stopping patience of three and a maximum of ten epochs.
+- Best checkpoint selected at epoch 9: validation loss `0.07923`, validation accuracy `93.37%`.
+- Final held-out evaluation at threshold `0.50` after model selection was complete.
+
+The tracked checkpoint is [`resnet18_best.pt`](results/models/resnet18_best.pt), with its complete epoch history in [`resnet18_best.history.json`](results/models/resnet18_best.history.json).
+
+## Grad-CAM explainability
+
+Grad-CAM is computed from ResNet18 `layer4`'s final `conv2` activation using gradients of the positive-class pneumonia logit. The app shows the prepared X-ray, an aligned color overlay, and the raw normalized heatmap.
+
+Grad-CAM indicates regions that influenced a model score. It is not a lesion segmentation, causal explanation, radiologist annotation, or proof that the model learned clinically valid features. Its spatial resolution is limited by the final convolutional feature map, and visual plausibility does not establish medical correctness.
+
+## Reproduce locally
+
+### 1. Install
 
 ```bash
-python -m venv .venv
+git clone https://github.com/Silence91169/pneumonia-screening-ml-dl.git
+cd pneumonia-screening-ml-dl
+python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Dependencies are installed only through a user-controlled environment setup. Dataset placement and the read-only audit workflow are documented in `data/README.md`.
+### 2. Place and audit the dataset
 
-To view the dataset-audit command options:
+Extract the dataset without modifying the source files:
 
-```bash
-python3 scripts/audit_dataset.py --help
+```text
+data/raw/chest_xray/
+├── train/{NORMAL,PNEUMONIA}/
+├── val/{NORMAL,PNEUMONIA}/
+└── test/{NORMAL,PNEUMONIA}/
 ```
 
-The audit is a forensic inventory and integrity check, not preprocessing. It does not resize, normalize, augment, relocate, or delete source images.
-
-## Current project status
-
-**Phase 1 classical feature engineering pipeline implemented; full experimental verification remains pending.** The stored historical audit describes 5,856 source images: 5,216 original training, 16 original validation, and 624 original test images. The current 5,840-row modeling manifest excludes the undersized original 16-image validation folder, partitions the 5,216 original training images into 4,432 train and 784 validation rows, and retains all 624 original test rows. SHA-256-identical training images are kept in the same generated partition, and the stored manifest has no exact-hash overlap between splits. This does **not** prove patient-level separation; the available metadata does not provide stable patient identifiers. The preprocessing implementation standardizes images to single-channel grayscale at 224×224 pixels.
-
-The HOG and LBP feature extraction pipeline (`src/features/`) is implemented and tested:
-
-- **HOG** (`src/features/hog.py`): `skimage.feature.hog` — configurable `orientations`, `pixels_per_cell`, `cells_per_block`, `block_norm` via `configs/config.yaml`. Defaults: 9 orientations, 16×16 pixels-per-cell, 2×2 cells-per-block, L2-Hys → **6,084-dim** vector per image.
-- **LBP** (`src/features/lbp.py`): `skimage.feature.local_binary_pattern` — P=8, R=1, method='uniform' → **10-bin** normalised histogram per image (captures diffuse lung opacities that HOG misses).
-- **Pipeline** (`src/features/build_features.py`): three feature configs (`hog`, `lbp`, `combined`). `StandardScaler` fitted **strictly on training data only**; val and test are transformed only — never refitted. Outputs cached as `.npz` + `.joblib` under `data/processed/`.
-
-To extract features once `split_manifest.csv` exists:
-
 ```bash
-# All three feature configs (default params from configs/config.yaml)
-python scripts/extract_features.py
-
-# Fine HOG experiment with 8×8 pixels-per-cell
-python scripts/extract_features.py --config hog --pixels-per-cell 8 8
-
-# Single config only
-python scripts/extract_features.py --config combined
+python3 scripts/audit_dataset.py
+python3 scripts/prepare_data.py
 ```
 
-The Phase 1 SVM training runner is implemented in `src/models/classical.py` and
-`scripts/train_classical.py`. It runs stratified 5-fold cross-validation on the
-training split, selects parameters by balanced accuracy, reports a validation
-balanced-accuracy score, and serializes each selected estimator under
-`results/models/`. The runner selects parameters inside training, fits the base
-estimator on training only, and reserves validation for Platt calibration. It
-does not access the test split.
-Run it after extracting the feature caches:
+### 3. Extract features, train, and evaluate the SVMs
 
 ```bash
-python scripts/train_classical.py
+python3 scripts/extract_features.py --config all
+python3 scripts/train_classical.py
+python3 scripts/evaluate.py
 ```
 
-The three available models are `hog_linear_svm`, `hog_rbf_svm`, and
-`hog_lbp_rbf_svm`. Training summaries, including best parameters and timing,
-are written to `results/metrics/classical_training.json`. No SVM experiments
-have been run yet because feature caches are not currently present. Official
-evaluation now fails closed when real artifacts are missing. ResNet18 training,
-early stopping, inference, checkpointing, and Grad-CAM are implemented, but no
-CNN training result is claimed. See `EVALUATION_READINESS.md` and
-`results/metrics/PROVENANCE.md`.
+`evaluate.py` fails closed if a required model or real held-out feature cache is missing; it does not create fallback metrics.
 
+### 4. Train and evaluate ResNet18
 
-## Medical and research disclaimer
+```bash
+python3 scripts/train_cnn.py --epochs 10 --batch-size 16
+python3 scripts/evaluate_cnn.py --batch-size 16
+```
 
-**This project is an educational research prototype and is not intended for clinical diagnosis or medical decision-making.**
+The default training run uses ImageNet pretrained weights. Pass `--no-pretrained` only for an explicitly different experiment. The current training script selects CUDA when available and otherwise uses CPU.
 
-Future dataset performance must not be presented as evidence of real-world clinical performance.
+### 5. Test and launch Streamlit
+
+```bash
+python3 -m pytest -q
+streamlit run app.py
+```
+
+## Repository structure
+
+```text
+.
+├── app.py                         # Deployed Streamlit application
+├── configs/config.yaml            # Shared preprocessing and feature settings
+├── data/
+│   ├── README.md                  # Dataset attribution and audit instructions
+│   ├── processed/split_manifest.csv
+│   └── sample_images/             # Small deployment demonstration set
+├── docs/images/                   # Genuine screenshots from the live deployment
+├── results/
+│   ├── dataset_audit/             # Aggregate data-audit evidence
+│   ├── figures/                   # Evaluation plots
+│   ├── metrics/                   # Real metrics and provenance records
+│   └── models/                    # SVMs, scalers, and ResNet18 checkpoint
+├── scripts/                       # Audit, preparation, training, and evaluation CLIs
+├── src/                           # Reusable data, feature, model, and metric code
+├── tests/                         # Automated regression tests
+├── requirements.txt               # Pinned Python dependencies
+└── packages.txt                   # Streamlit Cloud system dependencies
+```
+
+## Verification
+
+- Real AML evidence marker: `real held-out test features; synthetic fallback prohibited`.
+- Real DL evidence marker: `real held-out test images`.
+- Three calibrated SVM artifacts, two train-fitted scalers, and the epoch-9 ResNet18 checkpoint load in the deployed app.
+- Automated suite: **59 tests passed**.
+- Fresh screenshots above were captured from the public Streamlit deployment on 16 November 2026 and reviewed for sensitive content.
+
+## Limitations and responsible use
+
+- Results are retrospective and come from one public pediatric dataset.
+- Dataset imbalance and distribution-specific acquisition can inflate or distort apparent performance.
+- Patient-level separation is not established from the available metadata.
+- The SVMs' high sensitivity is accompanied by many false positives and low specificity.
+- Thresholds and probability calibration may not transfer to other institutions or populations.
+- The binary label does not identify pneumonia cause, severity, comorbidities, or alternative pathology.
+- External, prospective, multi-site validation and clinical governance would be mandatory before any real-world use.
+
+This repository demonstrates a reproducible ML engineering and research workflow; it does not establish clinical validity.
