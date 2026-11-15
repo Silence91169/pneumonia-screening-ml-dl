@@ -52,7 +52,6 @@ Executed models will be evaluated using more than accuracy. Planned metrics and 
 
 ```text
 .
-├── AGENTS.md              # Governing project and research instructions
 ├── README.md              # Project overview and setup guidance
 ├── requirements.txt       # Minimal planned Python dependency stack
 ├── configs/
@@ -99,7 +98,7 @@ The audit is a forensic inventory and integrity check, not preprocessing. It doe
 
 ## Current project status
 
-**Phase 1 classical feature engineering pipeline complete.** The dataset audit established baseline data characteristics across 5,856 images. The preprocessing pipeline standardizes images to single-channel Grayscale and 224×224 pixels. A group-aware stratified re-splitting pipeline established 4,432 train, 784 validation, and 624 untouched test images with zero cross-split duplicate leakage (`data/processed/split_manifest.csv`).
+**Phase 1 classical feature engineering pipeline implemented; full experimental verification remains pending.** The stored historical audit describes 5,856 source images: 5,216 original training, 16 original validation, and 624 original test images. The current 5,840-row modeling manifest excludes the undersized original 16-image validation folder, partitions the 5,216 original training images into 4,432 train and 784 validation rows, and retains all 624 original test rows. SHA-256-identical training images are kept in the same generated partition, and the stored manifest has no exact-hash overlap between splits. This does **not** prove patient-level separation; the available metadata does not provide stable patient identifiers. The preprocessing implementation standardizes images to single-channel grayscale at 224×224 pixels.
 
 The HOG and LBP feature extraction pipeline (`src/features/`) is implemented and tested:
 
