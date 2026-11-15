@@ -1,10 +1,10 @@
-"""Streamlit Web Application for Pneumonia Screening Research Prototype (Phase 1).
+"""Streamlit application for the verified AML and ResNet18 research prototype.
 
-Faculty-Ready Clinical AI Research Dashboard:
+Educational ML research dashboard:
 - Live Interactive Screening on all 5,840 cohort radiographs or custom uploads
 - Handcrafted Feature Engineering Lab (HOG & LBP Visualizers)
 - Model Performance Benchmark & Decision Threshold Sensitivity Optimizer
-- Forensic Dataset Audit & Zero-Leakage Split Architecture
+- Forensic Dataset Audit & Exact-Duplicate Split Checks
 
 Educational Research Prototype — NOT intended for clinical diagnosis.
 """
@@ -33,6 +33,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.data.preprocess import standardize_image
 from src.features.hog import extract_hog_features
 from src.features.lbp import extract_lbp_features
+from src.models.cnn_pipeline import grad_cam, image_transform
+from src.models.deep_learning import ChestXrayClassifier
 
 # ---------------------------------------------------------------------------
 # Streamlit App Configuration & Premium Clinical UI Styling
@@ -190,7 +192,14 @@ def load_test_benchmark():
         with open(path, "r") as f:
             payload = json.load(f)
         if payload.get("metadata", {}).get("evidence_type") == "real held-out test features; synthetic fallback prohibited":
-            return payload.get("models", {})
+            models = dict(payload.get("models", {}))
+            cnn_path = PROJECT_ROOT / "results" / "metrics" / "resnet18_test_metrics.json"
+            if cnn_path.is_file():
+                with cnn_path.open("r", encoding="utf-8") as stream:
+                    cnn_payload = json.load(stream)
+                if cnn_payload.get("evidence_type") == "real held-out test images":
+                    models["resnet18"] = cnn_payload.get("metrics", {})
+            return models
     return None
 
 @st.cache_resource
@@ -214,6 +223,28 @@ def load_classical_models():
     if lbp_sc.is_file():
         scalers["lbp"] = joblib.load(lbp_sc)
     return loaded, scalers
+
+
+@st.cache_resource
+def load_resnet18_model():
+    """Load the verified best ResNet18 checkpoint for CPU inference."""
+    import torch
+
+    checkpoint_path = PROJECT_ROOT / "results" / "models" / "resnet18_best.pt"
+    if not checkpoint_path.is_file():
+        return None, None
+    payload = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    model = ChestXrayClassifier(
+        payload.get("backbone", "resnet18"), pretrained=False, freeze_backbone=False
+    )
+    model.load_state_dict(payload["state_dict"])
+    model.eval()
+    metadata = {
+        "epoch": payload.get("epoch"),
+        "val_loss": payload.get("val_loss"),
+        "path": str(checkpoint_path),
+    }
+    return model, metadata
 
 # ---------------------------------------------------------------------------
 # Self-Contained UI Image Transformation & Saliency Utilities
@@ -365,7 +396,7 @@ st.markdown(
     """
     <div class="hero-container">
         <div class="hero-title">🫁 Pneumonia Screening Research Prototype</div>
-        <div class="hero-sub">Phase 1: Handcrafted Feature Engineering (HOG & LBP) with Class-Balanced Support Vector Machines</div>
+        <div class="hero-sub">Verified HOG/LBP SVM and pretrained ResNet18 inference on pediatric chest radiographs</div>
         <span class="status-pill">● Educational research dashboard • Artifact availability checked at runtime</span>
     </div>
     <div class="disclaimer-box">
@@ -382,21 +413,27 @@ st.markdown(
 # ---------------------------------------------------------------------------
 with st.sidebar:
     st.markdown("### 🏛️ Research Protocol")
-    st.markdown("**Phase**: Phase 1 Classical Machine Learning")
+    st.markdown("**Phase**: Verified AML + ResNet18 evaluation")
     st.markdown("**Target Pathology**: Pediatric Pneumonia")
     st.markdown("**Screening Objective**: High Sensitivity (>95% target recall)")
-    st.markdown("**Data Integrity**: Zero-Leakage (Scalers fit-on-train only)")
+    st.markdown("**Data Integrity**: Train-only scalers; zero cross-split exact-hash overlap")
 
     st.markdown("---")
     st.markdown("### ⚙️ Engine Status")
     models, scalers = load_classical_models()
+    resnet_model, resnet_metadata = load_resnet18_model()
     if models:
         st.success(f"✓ {len(models)} Classical Models Loaded")
     else:
         st.warning("No verified validation-calibrated model artifacts are available")
 
     if scalers:
-        st.success("✓ Anti-Leakage Feature Scalers Ready")
+        st.success("✓ Train-Fitted Feature Scalers Ready")
+
+    if resnet_model is not None:
+        st.success(f"✓ ResNet18 Best Checkpoint Loaded (epoch {resnet_metadata['epoch']})")
+    else:
+        st.warning("Verified ResNet18 checkpoint is unavailable")
 
     st.caption("Inference mode: local CPU; latency is measured only when a verified model runs")
 
@@ -483,64 +520,78 @@ with tab1:
 
             if run_btn:
                 if raw_model_name == "resnet18":
-                    st.warning(
-                        "No verified ResNet18 checkpoint is bundled. Train with scripts/train_cnn.py; "
-                        "the app will not fabricate a CNN prediction."
-                    )
-                    st.stop()
-                clf = models.get(raw_model_name)
-                if clf and "hog" in scalers and "lbp" in scalers:
-                    with st.spinner("Extracting features and predicting..."):
+                    if resnet_model is None:
+                        st.error("The verified ResNet18 checkpoint is unavailable. No prediction was generated.")
+                        st.stop()
+                    import torch
+
+                    with st.spinner("Running ResNet18 inference and Grad-CAM..."):
                         t_start = time.time()
-                        h_vec = extract_hog_features(std_img).reshape(1, -1)
-                        l_vec = extract_lbp_features(std_img).reshape(1, -1)
-
-                        h_s = scalers["hog"].transform(h_vec)
-                        l_s = scalers["lbp"].transform(l_vec)
-                        comb_s = np.hstack([h_s, l_s])
-
-                        X_in = comb_s if raw_model_name == "hog_lbp_rbf_svm" else h_s
-
-                        if hasattr(clf, "predict_proba"):
-                            prob = float(clf.predict_proba(X_in)[0, 1])
-                        else:
-                            dec = float(clf.decision_function(X_in)[0])
-                            prob = float(1.0 / (1.0 + np.exp(-dec)))
-
+                        with Image.open(image_path) as source_image:
+                            tensor = image_transform(False)(source_image.convert("L")).unsqueeze(0)
+                        with torch.no_grad():
+                            prob = float(torch.sigmoid(resnet_model(tensor)).item())
+                        cam = grad_cam(resnet_model, tensor)
                         latency = (time.time() - t_start) * 1000
-                        is_pneumonia = prob >= threshold
-
+                    is_pneumonia = prob >= threshold
                     st.markdown("---")
-                    if is_pneumonia:
-                        st.markdown(
-                            f'<div class="badge-positive">🔴 PNEUMONIA INDICATED (Risk Score: {prob*100:.1f}%)</div>',
-                            unsafe_allow_html=True,
-                        )
-                        st.caption("Flagged for priority clinical review. Pneumonia likelihood exceeds screening threshold.")
-                    else:
-                        st.markdown(
-                            f'<div class="badge-negative">🟢 NORMAL / NO PNEUMONIA (Risk Score: {prob*100:.1f}%)</div>',
-                            unsafe_allow_html=True,
-                        )
-                        st.caption("No significant consolidation or interstitial opacities detected.")
-
-                    st.progress(float(prob))
-                    st.caption(f"⚡ Processing Latency: **{latency:.1f} ms** | Operating Cutoff: **{threshold*100:.0f}%**")
-
-                    # Live Saliency and Gradient Visualizations
-                    st.markdown("---")
-                    st.markdown("##### 🔍 Interpretability & Feature Activations")
-                    _, hog_vis = compute_hog_vis(std_img)
-                    saliency = compute_edge_density_overlay(std_img, alpha=0.45)
-
-                    v1, v2 = st.columns(2)
-                    v1.image(hog_vis, caption="HOG Gradient Vector Field (6,084 dims)", clamp=True, use_container_width=True)
-                    v2.image(saliency, caption="Edge-density visualization (not model attribution)", use_container_width=True)
-                else:
-                    st.error(
-                        "A validation-calibrated model and matching scalers are unavailable. "
-                        "Run feature extraction and scripts/train_classical.py. No prediction was generated."
+                    badge_class = "badge-positive" if is_pneumonia else "badge-negative"
+                    label = "PNEUMONIA INDICATED" if is_pneumonia else "NORMAL / NO PNEUMONIA"
+                    st.markdown(
+                        f'<div class="{badge_class}">{label} (Probability: {prob*100:.1f}%)</div>',
+                        unsafe_allow_html=True,
                     )
+                    st.progress(float(prob))
+                    st.caption(
+                        f"ResNet18 epoch {resnet_metadata['epoch']} checkpoint • "
+                        f"{latency:.1f} ms • cutoff {threshold*100:.0f}%"
+                    )
+                    st.image(cam, caption="Grad-CAM attribution for the ResNet18 pneumonia logit", clamp=True)
+                else:
+                    clf = models.get(raw_model_name)
+                    if clf and "hog" in scalers and "lbp" in scalers:
+                        with st.spinner("Extracting features and predicting..."):
+                            t_start = time.time()
+                            h_vec = extract_hog_features(std_img).reshape(1, -1)
+                            l_vec = extract_lbp_features(std_img).reshape(1, -1)
+
+                            h_s = scalers["hog"].transform(h_vec)
+                            l_s = scalers["lbp"].transform(l_vec)
+                            comb_s = np.hstack([h_s, l_s])
+
+                            X_in = comb_s if raw_model_name == "hog_lbp_rbf_svm" else h_s
+                            prob = float(clf.predict_proba(X_in)[0, 1])
+                            latency = (time.time() - t_start) * 1000
+                            is_pneumonia = prob >= threshold
+
+                        st.markdown("---")
+                        if is_pneumonia:
+                            st.markdown(
+                                f'<div class="badge-positive">🔴 PNEUMONIA INDICATED (Probability: {prob*100:.1f}%)</div>',
+                                unsafe_allow_html=True,
+                            )
+                        else:
+                            st.markdown(
+                                f'<div class="badge-negative">🟢 NORMAL / NO PNEUMONIA (Probability: {prob*100:.1f}%)</div>',
+                                unsafe_allow_html=True,
+                            )
+
+                        st.progress(float(prob))
+                        st.caption(f"Processing latency: **{latency:.1f} ms** | Operating cutoff: **{threshold*100:.0f}%**")
+
+                        st.markdown("---")
+                        st.markdown("##### 🔍 Feature Visualizations")
+                        _, hog_vis = compute_hog_vis(std_img)
+                        saliency = compute_edge_density_overlay(std_img, alpha=0.45)
+
+                        v1, v2 = st.columns(2)
+                        v1.image(hog_vis, caption="HOG Gradient Vector Field (6,084 dims)", clamp=True, use_container_width=True)
+                        v2.image(saliency, caption="Edge-density visualization (not model attribution)", use_container_width=True)
+                    else:
+                        st.error(
+                            "A validation-calibrated model and matching train-fitted scalers are unavailable. "
+                            "No prediction was generated."
+                        )
 
 # ===========================================================================
 # TAB 2: Handcrafted Feature Engineering Lab (Interactive Parameters)
@@ -636,8 +687,8 @@ with tab3:
 with tab4:
     st.markdown("#### 📁 Forensic Dataset Audit & Partitioning Protocol")
     st.caption(
-        "Stored historical audit and manifest summary. The raw dataset is not present in this checkout, "
-        "so current file counts and duplicate checks cannot be independently rerun here."
+        "Verified audit and manifest summary. The deployment intentionally omits the raw training dataset; "
+        "only trained inference artifacts and bundled demonstration images are shipped."
     )
 
     audit = load_audit_summary()
