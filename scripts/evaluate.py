@@ -142,6 +142,14 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _portable_path(path: Path) -> str:
+    """Prefer repository-relative paths in exported provenance metadata."""
+    try:
+        return path.resolve().relative_to(PROJECT_ROOT.resolve()).as_posix()
+    except ValueError:
+        return str(path.resolve())
+
+
 def _required_artifacts(models_dir: Path, feature_dir: Path) -> list[Path]:
     paths: list[Path] = []
     for model_name, feature_type in MODEL_FEATURES.items():
@@ -241,9 +249,9 @@ def evaluate_all_models(
         comparison_rows.append(row)
         json_results["models"][model_name] = {
             **metrics.to_dict(),
-            "model_artifact": str(model_path),
+            "model_artifact": _portable_path(model_path),
             "model_sha256": _sha256(model_path),
-            "feature_cache": str(test_cache_path),
+            "feature_cache": _portable_path(test_cache_path),
             "feature_cache_sha256": _sha256(test_cache_path),
             "evidence_type": "real held-out test feature cache",
         }

@@ -33,7 +33,7 @@
         "val"
       ],
       "calibration_method": "Platt sigmoid",
-      "artifact": "/Users/rajsingh/Documents/Codex/2026-11-15/files-pasted-by-the-user-urgent/pneumonia-screening-ml-dl/results/models/hog_linear_svm.joblib",
+      "artifact": "results/models/hog_linear_svm.joblib",
       "test_split_used": false
     },
     {
@@ -64,7 +64,7 @@
         "val"
       ],
       "calibration_method": "Platt sigmoid",
-      "artifact": "/Users/rajsingh/Documents/Codex/2026-11-15/files-pasted-by-the-user-urgent/pneumonia-screening-ml-dl/results/models/hog_rbf_svm.joblib",
+      "artifact": "results/models/hog_rbf_svm.joblib",
       "test_split_used": false
     },
     {
@@ -95,7 +95,7 @@
         "val"
       ],
       "calibration_method": "Platt sigmoid",
-      "artifact": "/Users/rajsingh/Documents/Codex/2026-11-15/files-pasted-by-the-user-urgent/pneumonia-screening-ml-dl/results/models/hog_lbp_rbf_svm.joblib",
+      "artifact": "results/models/hog_lbp_rbf_svm.joblib",
       "test_split_used": false
     }
   ]
