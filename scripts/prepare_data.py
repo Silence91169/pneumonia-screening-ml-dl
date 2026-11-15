@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Command-line script to generate reproducible, leakage-free stratified splits."""
+"""Generate reproducible, exact-hash-grouped stratified splits."""
 
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def print_split_summary(manifest_df) -> None:
     print("\n" + "=" * 55)
-    print("STRATIFIED SPLIT GENERATION SUMMARY (LEAKAGE-FREE)")
+    print("STRATIFIED SPLIT GENERATION SUMMARY (EXACT-HASH GROUPED)")
     print("=" * 55)
     total = len(manifest_df)
     print(f"Total images cataloged: {total}")
@@ -67,7 +67,8 @@ def print_split_summary(manifest_df) -> None:
         print(f"  NORMAL       : {norm_count:,} ({norm_count / split_total * 100:.1f}%)")
         print(f"  PNEUMONIA    : {pneu_count:,} ({pct_pneu:.1f}%)")
 
-    # Verify zero leakage across splits
+    # Verify zero exact-image hash overlap across splits. This is narrower than
+    # proving absence of patient-level or acquisition-level leakage.
     train_hashes = set(manifest_df[manifest_df["split"] == "train"]["sha256"])
     val_hashes = set(manifest_df[manifest_df["split"] == "val"]["sha256"])
     test_hashes = set(manifest_df[manifest_df["split"] == "test"]["sha256"])
@@ -77,13 +78,14 @@ def print_split_summary(manifest_df) -> None:
     leak_val_test = len(val_hashes.intersection(test_hashes))
 
     print("\n" + "-" * 55)
-    print("DATA LEAKAGE AUDIT VERIFICATION:")
+    print("EXACT-DUPLICATE OVERLAP VERIFICATION:")
     print(f"  Train ∩ Val exact duplicate hashes  : {leak_train_val}")
     print(f"  Train ∩ Test exact duplicate hashes : {leak_train_test}")
     print(f"  Val ∩ Test exact duplicate hashes   : {leak_val_test}")
 
     if leak_train_val == 0 and leak_train_test == 0 and leak_val_test == 0:
-        print("  Status: ZERO DATA LEAKAGE CONFIRMED! ALL SPLITS FULLY ISOLATED.")
+        print("  Status: no exact-image SHA-256 overlap across splits.")
+        print("  Scope : patient-level separation is not established by this check.")
     else:
         print("  WARNING: Cross-split duplicates detected!")
     print("=" * 55 + "\n")

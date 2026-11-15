@@ -341,6 +341,20 @@ def dataset_image_picker(key_prefix: str = "main") -> tuple[Path | None, dict | 
                 avail = sorted(list(sample_dir.glob("*.jpeg")))
                 if avail:
                     selected_file = avail[chosen_pos % len(avail)]
+        # Never attach a missing cohort row's label to a different fallback
+        # image. Bundled files are demo samples, not the selected test record.
+        name = selected_file.name.casefold()
+        metadata = {
+            "image_path": str(selected_file.relative_to(PROJECT_ROOT)),
+            "label": "PNEUMONIA" if ("virus" in name or "bacteria" in name) else "NORMAL",
+            "split": "demo",
+            "source": "bundled sample fallback",
+        }
+        st.warning(
+            "The selected cohort image is unavailable locally. Displaying a bundled demo image "
+            "with its own filename-derived demo label; it is not the selected test record."
+        )
+        return selected_file, metadata
     metadata = df.iloc[chosen_pos].to_dict()
     return selected_file, metadata
 
@@ -379,12 +393,12 @@ with st.sidebar:
     if models:
         st.success(f"✓ {len(models)} Classical Models Loaded")
     else:
-        st.warning("Models not serialized in results/models/")
+        st.warning("No verified validation-calibrated model artifacts are available")
 
     if scalers:
         st.success("✓ Anti-Leakage Feature Scalers Ready")
 
-    st.caption("Inference Mode: Local CPU (sub-15ms execution)")
+    st.caption("Inference mode: local CPU; latency is measured only when a verified model runs")
 
 # ---------------------------------------------------------------------------
 # Main Tabs: Streamlined, Crisp, 100% Functional Layout
@@ -401,7 +415,10 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # ===========================================================================
 with tab1:
     st.markdown("#### 🩺 Live Radiograph Screening Analysis")
-    st.caption("Select any image from the 5,840-image cohort or upload your own to execute end-to-end Phase 1 inference.")
+    st.caption(
+        "Browse the manifest when raw images are present, use a clearly labeled bundled demo sample, "
+        "or upload an image. Predictions require verified model artifacts."
+    )
 
     input_mode = st.radio(
         "Radiograph Source:",
@@ -608,74 +625,20 @@ with tab3:
             "No verified held-out benchmark is available. Legacy 120-sample files were excluded because "
             "their predictions were generated synthetically when real feature caches were absent."
         )
-
-        thresh_val = st.slider("Operating Threshold:", 0.05, 0.95, 0.40, 0.05, key="tab3_th")
-
-        base_res = bench.get("HOG + Linear SVM", {})
-        tp_b = base_res.get("true_positives", 81)
-        fp_b = base_res.get("false_positives", 20)
-        tn_b = base_res.get("true_negatives", 18)
-        fn_b = base_res.get("false_negatives", 1)
-
-        # Dynamic simulation
-        delta = (thresh_val - 0.5) * 10
-        tp_cur = max(1, min(82, int(tp_b - delta * 0.8)))
-        fn_cur = 82 - tp_cur
-        fp_cur = max(0, min(38, int(fp_b - delta * 1.5)))
-        tn_cur = 38 - fp_cur
-
-        sens_cur = tp_cur / (tp_cur + fn_cur)
-        spec_cur = tn_cur / (tn_cur + fp_cur) if (tn_cur + fp_cur) > 0 else 0
-
-        m_c1, m_c2, m_c3 = st.columns(3)
-        m_c1.metric("Screening Sensitivity / Recall", f"{sens_cur*100:.1f}%")
-        m_c2.metric("Screening Specificity", f"{spec_cur*100:.1f}%")
-        m_c3.metric("Missed Pneumonia Cases (FN)", f"{fn_cur}", delta=-fn_cur, delta_color="inverse")
-
-        fig_cm = go.Figure(data=go.Heatmap(
-            z=[[tn_cur, fp_cur], [fn_cur, tp_cur]],
-            x=["Predicted NORMAL", "Predicted PNEUMONIA"],
-            y=["Actual NORMAL", "Actual PNEUMONIA"],
-            text=[[f"TN: {tn_cur}", f"FP: {fp_cur}"], [f"FN: {fn_cur}", f"TP: {tp_cur}"]],
-            texttemplate="%{text}",
-            textfont={"size": 18},
-            colorscale="Teal",
-            showscale=False,
-        ))
-        fig_cm.update_layout(height=260, margin=dict(t=20, b=20, l=20, r=20))
-        st.plotly_chart(fig_cm, use_container_width=True)
-
-        # Publication-Grade Diagnostic Evaluation Figures
-        st.markdown("---")
-        st.markdown("##### 📈 Publication-Quality Diagnostic Evaluation Curves")
-        st.caption("High-resolution 300 DPI ROC curves and Platt scaling probability calibration curves.")
-
-        fig_roc_path = PROJECT_ROOT / "results" / "figures" / "roc_curves_comparison.png"
-        fig_cal_path = PROJECT_ROOT / "results" / "figures" / "calibration_curves.png"
-
-        if fig_roc_path.is_file() and fig_cal_path.is_file():
-            c_roc, c_cal = st.columns(2)
-            c_roc.image(str(fig_roc_path), caption="Multi-Model ROC Comparison Curves", use_container_width=True)
-            c_cal.image(str(fig_cal_path), caption="Zero-Leakage Platt Probability Calibration Reliability", use_container_width=True)
-
-        # Benchmark Confusion Matrices
-        cm_linear = PROJECT_ROOT / "results" / "figures" / "confusion_matrix_hog_linear_svm.png"
-        cm_rbf = PROJECT_ROOT / "results" / "figures" / "confusion_matrix_hog_rbf_svm.png"
-        cm_lbp = PROJECT_ROOT / "results" / "figures" / "confusion_matrix_hog_lbp_rbf_svm.png"
-
-        if cm_linear.is_file() and cm_rbf.is_file() and cm_lbp.is_file():
-            st.markdown("##### 🩺 Benchmark Confusion Matrices")
-            cm1, cm2, cm3 = st.columns(3)
-            cm1.image(str(cm_linear), caption="HOG + Linear SVM", use_container_width=True)
-            cm2.image(str(cm_rbf), caption="HOG + RBF SVM", use_container_width=True)
-            cm3.image(str(cm_lbp), caption="HOG + LBP + RBF SVM", use_container_width=True)
+        st.info(
+            "Threshold exploration, confusion matrices, ROC curves, and calibration plots are disabled "
+            "until official real prediction artifacts exist."
+        )
 
 # ===========================================================================
 # TAB 4: Dataset Forensic Audit & Anti-Leakage Split Architecture
 # ===========================================================================
 with tab4:
     st.markdown("#### 📁 Forensic Dataset Audit & Partitioning Protocol")
-    st.caption("Forensic data inventory and leakage-free stratified re-splitting summary.")
+    st.caption(
+        "Stored historical audit and manifest summary. The raw dataset is not present in this checkout, "
+        "so current file counts and duplicate checks cannot be independently rerun here."
+    )
 
     audit = load_audit_summary()
     manifest = load_split_manifest()
@@ -720,9 +683,9 @@ with tab4:
     st.markdown("---")
     st.info(
         """
-        **Anti-Leakage Protocol Guarantee:**
+        **Recorded anti-leakage protocol (requires a full-data rerun for current verification):**
         - The original public Kaggle dataset contained only 16 validation images, which compromised hyperparameter validation.
-        - The project executed a group-aware stratified re-splitting to construct 4,432 train, 784 validation, and 624 holdout test images.
+        - The stored manifest records 4,432 train, 784 validation, and 624 holdout test rows.
         - Preprocessing scalers (StandardScaler) are fitted **strictly on training data**. Validation and test data are transformed only without re-fitting.
         """
     )
@@ -731,4 +694,4 @@ with tab4:
 # Footer
 # ---------------------------------------------------------------------------
 st.markdown("---")
-st.caption("Pneumonia Screening Research Prototype • Phase 1 Milestone • Educational Research Prototype • Developed strictly in accordance with AGENTS.md")
+st.caption("Pneumonia Screening Research Prototype • Phase 1 Milestone • Educational Research Prototype • Not for clinical use")

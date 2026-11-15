@@ -123,7 +123,7 @@ def build_stratified_manifest(
     random_seed: int = 42,
     project_root: Path | None = None,
 ) -> pd.DataFrame:
-    """Build a complete, leakage-free split manifest with a stratified validation set.
+    """Build an exact-hash-grouped split manifest with a stratified validation set.
 
     Parameters
     ----------
@@ -161,7 +161,10 @@ def build_stratified_manifest(
     if not test_records:
         raise ValueError(f"No valid images found in {test_dir}")
 
-    # Compute SHA-256 for all training images first to prevent duplicate leakage
+    # Compute SHA-256 for all training images first to prevent exact duplicates
+    # from crossing the newly generated train/validation boundary. This does not
+    # establish patient-level separation because the source dataset lacks stable
+    # patient identifiers.
     train_data = []
     for r in train_records:
         path = Path(r["relative_path"])

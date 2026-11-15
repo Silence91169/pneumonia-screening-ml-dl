@@ -25,7 +25,7 @@ def test_manifest_dataset_normalizes_pretrained_input(tmp_path: Path) -> None:
 
 
 def test_resnet18_grad_cam_smoke() -> None:
-    model = ChestXrayClassifier("resnet18", pretrained=False, freeze_backbone=False)
+    model = ChestXrayClassifier("resnet18", pretrained=False, freeze_backbone=True)
     model.eval()
     tensor = torch.randn(1, 3, 64, 64)
     heatmap = grad_cam(model, tensor)

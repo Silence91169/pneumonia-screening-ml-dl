@@ -151,6 +151,11 @@ def grad_cam(model: ChestXrayClassifier, input_tensor: torch.Tensor) -> np.ndarr
     """Return a normalized Grad-CAM heatmap for one BCHW input."""
     if input_tensor.ndim != 4 or input_tensor.shape[0] != 1:
         raise ValueError("Grad-CAM expects a single BCHW input")
+    # A frozen backbone has no trainable parameters, so its intermediate
+    # activations do not require gradients unless the input does. Grad-CAM
+    # still needs those activation gradients even though model weights remain
+    # frozen and unchanged.
+    input_tensor = input_tensor.detach().clone().requires_grad_(True)
     activations: list[torch.Tensor] = []
     gradients: list[torch.Tensor] = []
     layer = model.get_target_layer_for_cam()
