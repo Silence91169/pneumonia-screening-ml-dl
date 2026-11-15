@@ -4,9 +4,8 @@
 Educational research prototype — NOT intended for clinical diagnosis or medical decision-making.
 
 This script executes clinical evaluation on the Phase 1 test split:
-1. Loads test feature sets (HOG, combined HOG+LBP) and held-out validation features.
-2. Applies Platt scaling (CalibratedClassifierCV) fitted STRICTLY on validation data
-   to satisfy the zero-leakage constraint.
+1. Loads test feature sets and already calibrated model artifacts.
+2. Refuses to run unless every real artifact required for a fair comparison exists.
 3. Evaluates clinical metrics: Sensitivity (Recall), Specificity, Precision, F1, Balanced Accuracy,
    ROC-AUC, Brier score, and raw confusion matrix counts (TP, FP, TN, FN).
 4. Exports summary tables:
@@ -26,6 +25,7 @@ Usage Examples:
 from __future__ import annotations
 
 import argparse
+import hashlib
 from datetime import datetime, timezone
 import json
 import logging
@@ -44,9 +44,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.evaluation.metrics import (
     DISCLAIMER,
     ClinicalMetrics,
-    calibrate_classifier,
     compute_clinical_metrics,
-    predict_calibrated_probabilities,
 )
 from src.evaluation.plots import (
     plot_calibration_curves,
@@ -117,7 +115,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _load_npz_cache(path: Path) -> tuple[np.ndarray, np.ndarray]:
+def _load_npz_cache(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
     """Load feature matrix X and label vector y from an .npz cache file."""
     if not path.is_file():
         raise FileNotFoundError(f"Feature cache not found: {path}")
@@ -126,43 +124,32 @@ def _load_npz_cache(path: Path) -> tuple[np.ndarray, np.ndarray]:
             raise ValueError(f"Expected arrays 'X' and 'y' in {path}")
         X = np.asarray(cache["X"])
         y = np.asarray(cache["y"]).reshape(-1)
-    return X, y
+        ids = np.asarray(cache["sample_ids"]).astype(str) if "sample_ids" in cache.files else None
+    if X.ndim != 2 or X.shape[0] != y.size:
+        raise ValueError(f"Invalid feature/label dimensions in {path}: X={X.shape}, y={y.shape}")
+    if set(np.unique(y).tolist()) != {0, 1}:
+        raise ValueError(f"Labels in {path} must be 0=NORMAL and 1=PNEUMONIA")
+    if ids is not None and ids.size != y.size:
+        raise ValueError(f"sample_ids length does not match labels in {path}")
+    return X, y, ids
 
 
-def _generate_synthetic_test_evaluation(
-    model_name: str,
-    feature_name: str,
-    random_seed: int = 42,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Generate realistic test predictions and probabilities matching benchmark distributions."""
-    rng = np.random.default_rng(random_seed + hash(model_name) % 1000)
-    # Test split distribution: ~120 samples, 82 Pneumonia (1), 38 Normal (0)
-    y_test = np.array([0] * 38 + [1] * 82)
-    n = len(y_test)
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
-    # Base performance profiles per model architecture
-    if model_name == "hog_linear_svm":
-        prob_pos = np.where(
-            y_test == 1,
-            rng.beta(8, 2, size=n),   # High probability for pneumonia
-            rng.beta(2, 5, size=n),   # Lower probability for normal
-        )
-    elif model_name == "hog_rbf_svm":
-        prob_pos = np.where(
-            y_test == 1,
-            rng.beta(9, 2.5, size=n),
-            rng.beta(3, 5, size=n),
-        )
-    else:  # hog_lbp_rbf_svm
-        prob_pos = np.where(
-            y_test == 1,
-            rng.beta(9.5, 2.2, size=n),
-            rng.beta(2.8, 5.2, size=n),
-        )
 
-    prob_pos = np.clip(prob_pos, 0.01, 0.99)
-    y_pred = (prob_pos >= 0.5).astype(int)
-    return y_test, y_pred, prob_pos
+def _required_artifacts(models_dir: Path, feature_dir: Path) -> list[Path]:
+    paths: list[Path] = []
+    for model_name, feature_type in MODEL_FEATURES.items():
+        paths.extend([
+            models_dir / f"{model_name}.joblib",
+            feature_dir / f"features_test_{feature_type}.npz",
+        ])
+    return list(dict.fromkeys(paths))
 
 
 def evaluate_all_models(
@@ -173,6 +160,14 @@ def evaluate_all_models(
     dpi: int = 300,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Evaluate all models, export CSV and JSON summaries, and render figures."""
+    missing = [path for path in _required_artifacts(models_dir, feature_dir) if not path.is_file()]
+    if missing:
+        formatted = "\n".join(f"  - {path}" for path in missing)
+        raise FileNotFoundError(
+            "Official evaluation requires real trained models and held-out feature caches. "
+            "No metrics were written. Missing:\n" + formatted
+        )
+
     metrics_dir = output_dir / "metrics"
     figures_dir = output_dir / "figures"
     metrics_dir.mkdir(parents=True, exist_ok=True)
@@ -184,7 +179,8 @@ def evaluate_all_models(
         "metadata": {
             "timestamp_utc": datetime.now(timezone.utc).isoformat(),
             "disclaimer": DISCLAIMER,
-            "zero_leakage_calibration": "Platt scaling (CalibratedClassifierCV) fit strictly on validation split",
+            "evidence_type": "real held-out test features; synthetic fallback prohibited",
+            "calibration": "contained in each serialized model; fitted on validation only",
             "positive_class": "PNEUMONIA (1)",
             "negative_class": "NORMAL (0)",
         },
@@ -193,29 +189,25 @@ def evaluate_all_models(
 
     for model_name, feature_type in MODEL_FEATURES.items():
         model_path = models_dir / f"{model_name}.joblib"
-        val_cache_path = feature_dir / f"features_val_{feature_type}.npz"
         test_cache_path = feature_dir / f"features_test_{feature_type}.npz"
-
-        # Check if actual files exist
-        if model_path.is_file() and val_cache_path.is_file() and test_cache_path.is_file():
-            logger.info("Evaluating %s with cached features (%s)...", model_name, feature_type)
-            base_estimator = joblib.load(model_path)
-            X_val, y_val = _load_npz_cache(val_cache_path)
-            X_test, y_test = _load_npz_cache(test_cache_path)
-
-            # Fit calibrator strictly on validation data (zero-leakage constraint)
-            logger.info("Fitting Platt scaling calibrator on validation split (N=%d)...", len(y_val))
-            calibrated_clf = calibrate_classifier(base_estimator, X_val, y_val, method="sigmoid")
-
-            # Predict calibrated probabilities on test split
-            y_prob = predict_calibrated_probabilities(calibrated_clf, X_test)
-            y_pred = calibrated_clf.predict(X_test)
-        else:
-            logger.warning(
-                "Model file %s or feature caches not found. Utilizing established test benchmark distribution.",
-                model_path.name,
+        logger.info("Evaluating %s with real cached test features (%s)...", model_name, feature_type)
+        estimator = joblib.load(model_path)
+        X_test, y_test, sample_ids = _load_npz_cache(test_cache_path)
+        if not hasattr(estimator, "predict_proba"):
+            raise TypeError(
+                f"{model_path} has no predict_proba(). Retrain with scripts/train_classical.py "
+                "so validation-only probability calibration is stored in the artifact."
             )
-            y_test, y_pred, y_prob = _generate_synthetic_test_evaluation(model_name, feature_type)
+        y_prob = np.asarray(estimator.predict_proba(X_test))[:, 1]
+        y_pred = np.asarray(estimator.predict(X_test)).astype(int)
+
+        if models_data:
+            reference = next(iter(models_data.values()))
+            if not np.array_equal(y_test, reference["y_true"]):
+                raise ValueError("Test labels differ across feature caches; fair comparison is impossible.")
+            reference_ids = reference.get("sample_ids")
+            if reference_ids is not None and sample_ids is not None and not np.array_equal(reference_ids, sample_ids):
+                raise ValueError("Test sample order differs across feature caches.")
 
         # Compute clinical screening metrics
         metrics = compute_clinical_metrics(y_true=y_test, y_pred=y_pred, y_prob=y_prob)
@@ -224,6 +216,7 @@ def evaluate_all_models(
             "y_pred": y_pred,
             "y_prob": y_prob,
             "metrics": metrics,
+            "sample_ids": sample_ids,
             "auc": metrics.roc_auc,
             "brier_score": metrics.brier_score,
         }
@@ -246,7 +239,14 @@ def evaluate_all_models(
             "Total_Samples": metrics.total_samples,
         }
         comparison_rows.append(row)
-        json_results["models"][model_name] = metrics.to_dict()
+        json_results["models"][model_name] = {
+            **metrics.to_dict(),
+            "model_artifact": str(model_path),
+            "model_sha256": _sha256(model_path),
+            "feature_cache": str(test_cache_path),
+            "feature_cache_sha256": _sha256(test_cache_path),
+            "evidence_type": "real held-out test feature cache",
+        }
 
         logger.info(
             "%s: Sensitivity=%.4f, Specificity=%.4f, ROC-AUC=%.4f, Brier=%.4f",

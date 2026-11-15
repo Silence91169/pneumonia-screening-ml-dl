@@ -54,8 +54,8 @@ class TestClassicalModels:
         grid_combined = parameter_grid("hog_lbp_rbf_svm")
         assert grid_combined == {"C": C_VALUES, "gamma": GAMMA_VALUES}
 
-    def test_fit_and_select_runs_and_refits(self) -> None:
-        """Verify cross-validation parameter selection and refit on train+val."""
+    def test_fit_and_select_runs_and_calibrates(self) -> None:
+        """Verify train-only selection and validation-only calibration."""
         np.random.seed(42)
         X_train = np.random.randn(60, 15).astype(np.float32)
         y_train = np.array([0] * 16 + [1] * 44)  # ~73% class 1 imbalanced
@@ -80,8 +80,9 @@ class TestClassicalModels:
         assert result.cv_folds == 3
         assert result.search_seconds > 0.0
 
-        # Verify final estimator was refit on 80 samples (60 train + 20 val)
-        assert hasattr(result.estimator, "coef_")
+        probabilities = result.estimator.predict_proba(X_val)
+        assert probabilities.shape == (20, 2)
+        assert result.calibration_fit_seconds > 0.0
 
     def test_dimension_and_label_validation(self) -> None:
         """Verify input validation for mismatched shapes and invalid labels."""

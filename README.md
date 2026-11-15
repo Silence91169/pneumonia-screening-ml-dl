@@ -4,7 +4,7 @@
 
 This repository contains an educational Machine Learning and Deep Learning research prototype that will compare handcrafted chest X-ray representations with transfer-learned convolutional neural network representations for binary pneumonia screening research.
 
-All models, experiments, and results described below are **PLANNED** unless explicitly marked otherwise. No dataset has been downloaded and no model has been implemented or evaluated.
+The classical and CNN pipelines are implemented. The repository does not bundle the full raw dataset, so this checkout contains no reproducible held-out performance result and makes no accuracy claim.
 
 ## Research question
 
@@ -124,8 +124,9 @@ The Phase 1 SVM training runner is implemented in `src/models/classical.py` and
 `scripts/train_classical.py`. It runs stratified 5-fold cross-validation on the
 training split, selects parameters by balanced accuracy, reports a validation
 balanced-accuracy score, and serializes each selected estimator under
-`results/models/`. The runner reads only train and validation caches and refits
-the saved estimator on train plus validation; it does not access the test split.
+`results/models/`. The runner selects parameters inside training, fits the base
+estimator on training only, and reserves validation for Platt calibration. It
+does not access the test split.
 Run it after extracting the feature caches:
 
 ```bash
@@ -135,8 +136,11 @@ python scripts/train_classical.py
 The three available models are `hog_linear_svm`, `hog_rbf_svm`, and
 `hog_lbp_rbf_svm`. Training summaries, including best parameters and timing,
 are written to `results/metrics/classical_training.json`. No SVM experiments
-have been run yet because feature caches are not currently present. Final
-evaluation, explainability, and Phase 2 deep learning remain **PLANNED**.
+have been run yet because feature caches are not currently present. Official
+evaluation now fails closed when real artifacts are missing. ResNet18 training,
+early stopping, inference, checkpointing, and Grad-CAM are implemented, but no
+CNN training result is claimed. See `EVALUATION_READINESS.md` and
+`results/metrics/PROVENANCE.md`.
 
 
 ## Medical and research disclaimer
