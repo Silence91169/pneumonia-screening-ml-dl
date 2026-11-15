@@ -40,8 +40,8 @@ from src.models.deep_learning import ChestXrayClassifier
 # Streamlit App Configuration & Premium Clinical UI Styling
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Pneumonia Screening Research Prototype | Phase 1",
-    page_icon="🫁",
+    page_title="Chest X-ray Analysis",
+    page_icon=":material/radiology:",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -55,64 +55,76 @@ st.markdown(
         font-family: 'Inter', sans-serif;
     }
     
-    /* Top Header Bar */
+    :root {
+        --surface: #111827;
+        --surface-raised: #182235;
+        --border: rgba(148, 163, 184, 0.20);
+        --text: #f8fafc;
+        --muted: #a6b0c0;
+        --accent: #e05260;
+        --accent-soft: rgba(224, 82, 96, 0.12);
+    }
+    html, body, [class*="css"], [data-testid="stAppViewContainer"] {
+        font-family: 'Inter', sans-serif;
+    }
+    [data-testid="stAppViewContainer"] { background: #0b1220; color: var(--text); }
+    [data-testid="stSidebar"] { background: #0e1728; border-right: 1px solid var(--border); }
+    [data-testid="stHeader"] { background: rgba(11, 18, 32, 0.88); }
+    [data-testid="stMainBlockContainer"] { max-width: 1240px; padding-top: 2rem; }
+    h1, h2, h3, h4 { color: var(--text); letter-spacing: -0.025em; }
+    p, label, .stCaption { line-height: 1.6; }
+
     .hero-container {
-        background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(15, 23, 42, 0.7));
-        border: 1px solid rgba(56, 189, 248, 0.25);
-        border-radius: 12px;
-        padding: 1.4rem 1.8rem;
-        margin-bottom: 1.2rem;
-        backdrop-filter: blur(8px);
+        background: linear-gradient(135deg, #151f32 0%, #111827 65%, rgba(224,82,96,.12) 100%);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 1.75rem 2rem;
+        margin-bottom: 1rem;
     }
     .hero-title {
-        font-size: 2.1rem;
-        font-weight: 800;
-        color: #38bdf8;
-        letter-spacing: -0.02em;
+        font-size: clamp(1.8rem, 4vw, 2.65rem);
+        font-weight: 750;
+        color: var(--text);
+        letter-spacing: -0.04em;
         margin: 0;
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
     }
     .hero-sub {
-        font-size: 0.98rem;
-        color: #94a3b8;
-        margin-top: 0.3rem;
-        margin-bottom: 0.6rem;
+        font-size: 1rem;
+        color: var(--muted);
+        margin: .5rem 0 1rem;
+        max-width: 760px;
     }
     .status-pill {
         display: inline-flex;
         align-items: center;
         gap: 0.4rem;
-        background: rgba(16, 185, 129, 0.15);
-        color: #34d399;
-        border: 1px solid rgba(52, 211, 153, 0.3);
-        padding: 0.2rem 0.7rem;
+        background: rgba(148,163,184,.08);
+        color: #cbd5e1;
+        border: 1px solid var(--border);
+        padding: .3rem .75rem;
         border-radius: 9999px;
         font-size: 0.8rem;
         font-weight: 600;
     }
 
-    /* Medical Disclaimer Banner */
     .disclaimer-box {
-        background: rgba(239, 68, 68, 0.08);
-        border-left: 4px solid #ef4444;
-        border-radius: 6px;
-        padding: 0.75rem 1rem;
-        margin-bottom: 1.2rem;
-        color: #fca5a5;
-        font-size: 0.88rem;
-        line-height: 1.45;
+        background: var(--accent-soft);
+        border: 1px solid rgba(224,82,96,.32);
+        border-left: 4px solid var(--accent);
+        border-radius: 10px;
+        padding: .9rem 1rem;
+        margin-bottom: 1.5rem;
+        color: #e5e7eb;
+        font-size: .9rem;
+        line-height: 1.55;
     }
-    .disclaimer-box strong {
-        color: #f87171;
-    }
+    .disclaimer-box strong { color: #ff9da7; }
 
     /* Metric & Action Cards */
     .custom-card {
-        background: rgba(15, 23, 42, 0.65);
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        border-radius: 10px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
         padding: 1.1rem;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         margin-bottom: 1rem;
@@ -124,35 +136,55 @@ st.markdown(
         margin-bottom: 0.5rem;
     }
 
-    /* Result Badges */
+    [data-testid="stFileUploaderDropzone"], [data-testid="stDataFrame"],
+    [data-testid="stMetric"], [data-testid="stImage"] img {
+        border-radius: 12px;
+    }
+    [data-testid="stMetric"] {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: .9rem 1rem;
+    }
+    .section-copy { color: var(--muted); margin: -.3rem 0 1.25rem; max-width: 800px; }
+    .result-label { font-size: .76rem; text-transform: uppercase; letter-spacing: .09em; opacity: .82; }
     .badge-positive {
-        background: rgba(239, 68, 68, 0.2);
-        border: 1.5px solid #ef4444;
-        color: #fca5a5;
-        padding: 0.6rem 1rem;
-        border-radius: 8px;
-        font-size: 1.1rem;
+        background: var(--accent-soft);
+        border: 1px solid rgba(224,82,96,.48);
+        color: #ffadb5;
+        padding: 1rem 1.1rem;
+        border-radius: 12px;
+        font-size: 1.2rem;
         font-weight: 700;
         text-align: center;
         margin-bottom: 0.8rem;
     }
     .badge-negative {
-        background: rgba(16, 185, 129, 0.2);
-        border: 1.5px solid #10b981;
-        color: #6ee7b7;
-        padding: 0.6rem 1rem;
-        border-radius: 8px;
-        font-size: 1.1rem;
+        background: rgba(148,163,184,.10);
+        border: 1px solid rgba(148,163,184,.30);
+        color: #e2e8f0;
+        padding: 1rem 1.1rem;
+        border-radius: 12px;
+        font-size: 1.2rem;
         font-weight: 700;
         text-align: center;
         margin-bottom: 0.8rem;
     }
 
-    /* Custom button styling */
     div.stButton > button:first-child {
-        border-radius: 8px;
+        border-radius: 10px;
         font-weight: 600;
-        transition: all 0.2s ease-in-out;
+        min-height: 2.8rem;
+    }
+    div.stButton > button[kind="primary"] { background: var(--accent); border-color: var(--accent); }
+    [data-baseweb="tab-list"] { gap: .4rem; border-bottom: 1px solid var(--border); }
+    [data-baseweb="tab"] { min-height: 3rem; padding: .65rem 1rem; white-space: nowrap; }
+    [data-baseweb="tab-highlight"] { background-color: var(--accent); }
+    @media (max-width: 700px) {
+        [data-testid="stMainBlockContainer"] { padding: 1rem .9rem 3rem; }
+        .hero-container { padding: 1.25rem; border-radius: 12px; }
+        .hero-sub { font-size: .92rem; }
+        [data-baseweb="tab-list"] { overflow-x: auto; }
+        [data-baseweb="tab"] { padding: .55rem .65rem; font-size: .85rem; }
     }
     </style>
     """,
@@ -299,14 +331,14 @@ def dataset_image_picker(key_prefix: str = "main") -> tuple[Path | None, dict | 
     col_s1, col_s2, col_s3 = st.columns([1.2, 1.4, 0.8])
     with col_s1:
         split_opt = st.selectbox(
-            "Partition Filter:",
+            "Dataset split",
             ["Held-Out Test (624 imgs)", "Validation (784 imgs)", "Training (4,432 imgs)", "Entire Cohort (5,840 imgs)"],
             index=0,
             key=f"{key_prefix}_split_flt",
         )
     with col_s2:
         class_opt = st.selectbox(
-            "Pathology Filter:",
+            "Image label",
             ["All Categories", "NORMAL (Negative)", "PNEUMONIA (All Positive)", "Bacterial Pneumonia (Focal)", "Viral Pneumonia (Diffuse)"],
             index=0,
             key=f"{key_prefix}_class_flt",
@@ -314,7 +346,7 @@ def dataset_image_picker(key_prefix: str = "main") -> tuple[Path | None, dict | 
     with col_s3:
         st.write("")
         st.write("")
-        rand_click = st.button("🎲 Random Sample", key=f"{key_prefix}_btn_rand", use_container_width=True)
+        rand_click = st.button("Choose random image", key=f"{key_prefix}_btn_rand", use_container_width=True)
 
     # Filter records
     df = manifest.copy()
@@ -353,7 +385,7 @@ def dataset_image_picker(key_prefix: str = "main") -> tuple[Path | None, dict | 
     paths = df["image_path"].tolist()
 
     chosen_label = st.selectbox(
-        f"Select Radiograph ({len(df):,} available):",
+        f"Choose an X-ray ({len(df):,} available)",
         labels,
         index=curr_idx,
         key=f"{key_prefix}_dropdown",
@@ -395,14 +427,12 @@ def dataset_image_picker(key_prefix: str = "main") -> tuple[Path | None, dict | 
 st.markdown(
     """
     <div class="hero-container">
-        <div class="hero-title">🫁 Pneumonia Screening Research Prototype</div>
-        <div class="hero-sub">Verified HOG/LBP SVM and pretrained ResNet18 inference on pediatric chest radiographs</div>
-        <span class="status-pill">● Educational research dashboard • Artifact availability checked at runtime</span>
+        <div class="hero-title">Chest X-ray Analysis</div>
+        <div class="hero-sub">Compare handcrafted image features with a pretrained ResNet18 in a verified educational research workflow.</div>
+        <span class="status-pill">Research dashboard · Model files checked at runtime</span>
     </div>
     <div class="disclaimer-box">
-        <strong>⚠️ MANDATORY MEDICAL & RESEARCH DISCLAIMER:</strong> This platform is an educational machine learning research prototype.
-        It is <strong>NOT a certified medical diagnostic device</strong> and is <strong>NOT intended for clinical decision-making or patient management</strong>.
-        Model predictions represent statistical pattern associations and must not be interpreted as definitive radiological evaluations.
+        <strong>Research use only.</strong> This educational machine-learning prototype is not a medical device and must not be used for diagnosis, treatment, or patient management. Predictions show statistical patterns in the project dataset, not a radiologist's assessment.
     </div>
     """,
     unsafe_allow_html=True,
@@ -412,66 +442,62 @@ st.markdown(
 # Sidebar: System Specs & Research Protocol
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("### 🏛️ Research Protocol")
-    st.markdown("**Phase**: Verified AML + ResNet18 evaluation")
-    st.markdown("**Target Pathology**: Pediatric Pneumonia")
-    st.markdown("**Screening Objective**: High Sensitivity (>95% target recall)")
-    st.markdown("**Data Integrity**: Train-only scalers; zero cross-split exact-hash overlap")
+    st.markdown("### Project summary")
+    st.markdown("**Study:** Pneumonia screening research")
+    st.markdown("**Models:** Three calibrated SVMs and ResNet18")
+    st.markdown("**Evaluation:** 624 held-out X-rays")
+    st.markdown("**Data safeguards:** Train-only scaling; no exact-image overlap between splits")
 
     st.markdown("---")
-    st.markdown("### ⚙️ Engine Status")
+    st.markdown("### Model status")
     models, scalers = load_classical_models()
     resnet_model, resnet_metadata = load_resnet18_model()
     if models:
-        st.success(f"✓ {len(models)} Classical Models Loaded")
+        st.success(f"{len(models)} SVM models ready")
     else:
         st.warning("No verified validation-calibrated model artifacts are available")
 
     if scalers:
-        st.success("✓ Train-Fitted Feature Scalers Ready")
+        st.success("Feature scalers ready")
 
     if resnet_model is not None:
-        st.success(f"✓ ResNet18 Best Checkpoint Loaded (epoch {resnet_metadata['epoch']})")
+        st.success(f"ResNet18 ready · epoch {resnet_metadata['epoch']}")
     else:
         st.warning("Verified ResNet18 checkpoint is unavailable")
 
-    st.caption("Inference mode: local CPU; latency is measured only when a verified model runs")
+    st.caption("Inference runs on CPU in the deployed app. Timing appears only after a model completes.")
 
 # ---------------------------------------------------------------------------
 # Main Tabs: Streamlined, Crisp, 100% Functional Layout
 # ---------------------------------------------------------------------------
-tab1, tab2, tab3, tab4 = st.tabs([
-    "🩺 Live Diagnostic Screening Studio",
-    "🔬 Handcrafted Feature Engineering Lab",
-    "📊 Model Performance & Clinical Thresholds",
-    "📁 Dataset Forensic Audit & Splitting",
+tab1, tab2, tab3 = st.tabs([
+    "Screening",
+    "Feature Lab",
+    "Model Performance",
 ])
 
 # ===========================================================================
 # TAB 1: Live Diagnostic Screening Studio (All Buttons Guaranteed Working)
 # ===========================================================================
 with tab1:
-    st.markdown("#### 🩺 Live Radiograph Screening Analysis")
-    st.caption(
-        "Browse the manifest when raw images are present, use a clearly labeled bundled demo sample, "
-        "or upload an image. Predictions require verified model artifacts."
-    )
+    st.markdown("## Analyze an X-ray")
+    st.markdown('<p class="section-copy">Upload an image or select a project sample, then choose a trained model to explore its research prediction.</p>', unsafe_allow_html=True)
 
     input_mode = st.radio(
-        "Radiograph Source:",
-        ["Browse Cohort Manifest (5,840 Radiographs)", "Upload Custom Radiograph (PNG / JPEG)"],
+        "Image source",
+        ["Project samples", "Upload an image"],
         horizontal=True,
     )
 
     image_path = None
     ground_truth = None
 
-    if input_mode.startswith("Browse"):
+    if input_mode.startswith("Project"):
         image_path, meta = dataset_image_picker(key_prefix="tab1_browser")
         if meta:
             ground_truth = meta.get("label", "Unknown")
     else:
-        up_file = st.file_uploader("Upload Chest Radiograph (PNG, JPG, JPEG):", type=["png", "jpg", "jpeg"])
+        up_file = st.file_uploader("Upload a chest X-ray", type=["png", "jpg", "jpeg"], help="Accepted formats: PNG, JPG, and JPEG.")
         if up_file:
             temp_dir = PROJECT_ROOT / "results" / "temp_uploads"
             temp_dir.mkdir(parents=True, exist_ok=True)
@@ -488,14 +514,14 @@ with tab1:
         col_view, col_ctrl = st.columns([1.1, 1.3])
 
         with col_view:
-            st.image(std_img, caption="Standardized Radiograph (224×224 Grayscale)", clamp=True, use_container_width=True)
+            st.image(std_img, caption="Prepared image · 224 × 224 grayscale", clamp=True, use_container_width=True)
             if ground_truth:
-                st.info(f"**Cohort Ground Truth Label:** `{ground_truth}`")
+                st.info(f"Reference label: **{ground_truth}**")
 
         with col_ctrl:
-            st.markdown("##### ⚡ Screening Controls")
+            st.markdown("### Analysis settings")
             chosen_model_key = st.selectbox(
-                "Classification Pipeline:",
+                "Model",
                 [
                     "HOG + Linear SVM (hog_linear_svm)",
                     "HOG + RBF SVM (hog_rbf_svm)",
@@ -507,16 +533,16 @@ with tab1:
             raw_model_name = chosen_model_key.split("(")[-1].strip(")")
 
             threshold = st.slider(
-                "Clinical Decision Threshold (Cutoff):",
+                "Decision threshold",
                 min_value=0.10,
                 max_value=0.90,
                 value=0.45,
                 step=0.05,
-                help="Lowering threshold prioritizes Sensitivity (minimizes missed pneumonia cases).",
+                help="A lower threshold labels more images as pneumonia. This changes the sensitivity-specificity trade-off.",
             )
 
             # Guaranteed working action button
-            run_btn = st.button("🚀 Execute Clinical Screening Call", type="primary", use_container_width=True)
+            run_btn = st.button("Run analysis", type="primary", use_container_width=True)
 
             if run_btn:
                 if raw_model_name == "resnet18":
@@ -536,9 +562,9 @@ with tab1:
                     is_pneumonia = prob >= threshold
                     st.markdown("---")
                     badge_class = "badge-positive" if is_pneumonia else "badge-negative"
-                    label = "PNEUMONIA INDICATED" if is_pneumonia else "NORMAL / NO PNEUMONIA"
+                    label = "Pneumonia pattern predicted" if is_pneumonia else "Normal pattern predicted"
                     st.markdown(
-                        f'<div class="{badge_class}">{label} (Probability: {prob*100:.1f}%)</div>',
+                        f'<div class="{badge_class}"><div class="result-label">Research prediction</div>{label}<br>{prob*100:.1f}% model probability</div>',
                         unsafe_allow_html=True,
                     )
                     st.progress(float(prob))
@@ -567,20 +593,20 @@ with tab1:
                         st.markdown("---")
                         if is_pneumonia:
                             st.markdown(
-                                f'<div class="badge-positive">🔴 PNEUMONIA INDICATED (Probability: {prob*100:.1f}%)</div>',
+                                f'<div class="badge-positive"><div class="result-label">Research prediction</div>Pneumonia pattern predicted<br>{prob*100:.1f}% calibrated probability</div>',
                                 unsafe_allow_html=True,
                             )
                         else:
                             st.markdown(
-                                f'<div class="badge-negative">🟢 NORMAL / NO PNEUMONIA (Probability: {prob*100:.1f}%)</div>',
+                                f'<div class="badge-negative"><div class="result-label">Research prediction</div>Normal pattern predicted<br>{prob*100:.1f}% calibrated probability</div>',
                                 unsafe_allow_html=True,
                             )
 
                         st.progress(float(prob))
-                        st.caption(f"Processing latency: **{latency:.1f} ms** | Operating cutoff: **{threshold*100:.0f}%**")
+                        st.caption(f"Processing time: {latency:.1f} ms · Decision threshold: {threshold*100:.0f}%")
 
                         st.markdown("---")
-                        st.markdown("##### 🔍 Feature Visualizations")
+                        st.markdown("### Feature views")
                         _, hog_vis = compute_hog_vis(std_img)
                         saliency = compute_edge_density_overlay(std_img, alpha=0.45)
 
@@ -597,8 +623,8 @@ with tab1:
 # TAB 2: Handcrafted Feature Engineering Lab (Interactive Parameters)
 # ===========================================================================
 with tab2:
-    st.markdown("#### 🔬 Handcrafted Feature Extraction Lab")
-    st.caption("Interact with HOG (Gradient Edges) and LBP (Micro-Textures) parameters to inspect real-time feature responses.")
+    st.markdown("## Explore image features")
+    st.markdown('<p class="section-copy">See how HOG captures gradient structure and LBP summarizes local texture. These views explain the inputs to the classical models, not their decisions.</p>', unsafe_allow_html=True)
 
     sample_f_path, _ = dataset_image_picker(key_prefix="tab2_feat")
 
@@ -607,12 +633,13 @@ with tab2:
 
         col_h_param, col_l_param = st.columns(2)
         with col_h_param:
-            st.markdown("##### HOG Gradient Hyperparameters")
-            n_orient = st.slider("Orientation Bins:", 6, 12, 9, key="tab2_orient")
-            cell_size = st.select_slider("Pixels Per Cell:", options=[8, 16], value=16, key="tab2_cell")
+            st.markdown("### HOG settings")
+            n_orient = st.slider("Orientation bins", 6, 12, 9, key="tab2_orient")
+            cell_size = st.select_slider("Pixels per cell", options=[8, 16], value=16, key="tab2_cell")
         with col_l_param:
-            lbp_r = st.slider("LBP Radius (R):", min_value=1.0, max_value=5.0, value=1.0, step=0.5, key="tab2_r", help="Spatial neighborhood radius around center pixel.")
-            lbp_p = st.select_slider("Neighbor Set Points (P):", options=[8, 12, 16, 24], value=8, key="tab2_p", help="Number of circularly symmetric neighbor samples.")
+            st.markdown("### LBP settings")
+            lbp_r = st.slider("Neighborhood radius", min_value=1.0, max_value=5.0, value=1.0, step=0.5, key="tab2_r", help="Distance from the center pixel.")
+            lbp_p = st.select_slider("Sample points", options=[8, 12, 16, 24], value=8, key="tab2_p", help="Number of neighboring pixels sampled around the center.")
 
         t0 = time.time()
         h_f, h_vis = compute_hog_vis(std_f, orientations=n_orient, ppc=(cell_size, cell_size))
@@ -628,7 +655,7 @@ with tab2:
         c_img3.image(l_vis, caption=f"LBP Texture Map ({len(l_hist)} bins, {t_lbp:.1f}ms)", clamp=True, use_container_width=True)
 
         st.markdown("---")
-        st.markdown("##### 📊 Extracted Numerical Distributions")
+        st.markdown("### Feature distributions")
         d_col1, d_col2 = st.columns(2)
         with d_col1:
             st.caption(f"HOG Descriptor Profile (First 60 of {len(h_f):,} features):")
@@ -645,8 +672,8 @@ with tab2:
 # TAB 3: Model Performance & Clinical Thresholds
 # ===========================================================================
 with tab3:
-    st.markdown("#### 📊 Clinical Screening Performance Benchmark")
-    st.caption("Only provenance-verified held-out results appear here (PNEUMONIA = positive class).")
+    st.markdown("## Verified model performance")
+    st.markdown('<p class="section-copy">Results below come from the held-out 624-image test set. PNEUMONIA is the positive class.</p>', unsafe_allow_html=True)
 
     bench = load_test_benchmark()
     train_meta = load_classical_training_metrics()
@@ -655,7 +682,7 @@ with tab3:
         rows = []
         for m_name, d in bench.items():
             rows.append({
-                "Architecture": m_name,
+                "Model": m_name,
                 "Recall (Sensitivity)": f"{d.get('sensitivity', 0)*100:.1f}%",
                 "Specificity": f"{d.get('specificity', 0)*100:.1f}%",
                 "Precision": f"{d.get('precision', 0)*100:.1f}%",
@@ -666,11 +693,8 @@ with tab3:
         st.dataframe(pd.DataFrame(rows), use_container_width=True)
 
         st.markdown("---")
-        st.markdown("##### 🎚️ Decision Threshold Sensitivity Optimizer")
-        st.markdown(
-            "In clinical screening, **minimizing False Negatives (FN)** is the primary objective. "
-            "Adjust the slider to evaluate how shifting the operating threshold impacts the sensitivity-specificity trade-off:"
-        )
+        st.markdown("### Interpreting the threshold")
+        st.markdown("Lower thresholds generally increase sensitivity and false positives; higher thresholds generally increase specificity and false negatives. The interactive threshold in **Screening** affects only the current prediction, not these fixed test results.")
     else:
         st.warning(
             "No verified held-out benchmark is available. Legacy 120-sample files were excluded because "
@@ -684,8 +708,8 @@ with tab3:
 # ===========================================================================
 # TAB 4: Dataset Forensic Audit & Anti-Leakage Split Architecture
 # ===========================================================================
-with tab4:
-    st.markdown("#### 📁 Forensic Dataset Audit & Partitioning Protocol")
+with tab3:
+    st.markdown("## Dataset integrity")
     st.caption(
         "Verified audit and manifest summary. The deployment intentionally omits the raw training dataset; "
         "only trained inference artifacts and bundled demonstration images are shipped."
@@ -704,18 +728,18 @@ with tab4:
         st.markdown("---")
         g1, g2 = st.columns(2)
         with g1:
-            st.markdown("##### Severe Class Distribution Imbalance")
+            st.markdown("### Class distribution")
             fig_p = px.pie(
                 names=["PNEUMONIA (Positive)", "NORMAL (Negative)"],
                 values=[audit["class_counts"]["PNEUMONIA"], audit["class_counts"]["NORMAL"]],
-                color_discrete_sequence=["#ef4444", "#3b82f6"],
+                color_discrete_sequence=["#e05260", "#64748b"],
                 hole=0.45,
             )
             fig_p.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=260)
             st.plotly_chart(fig_p, use_container_width=True)
 
         with g2:
-            st.markdown("##### Leakage-Free Stratified Splitting")
+            st.markdown("### Modeling splits")
             if manifest is not None:
                 sc = manifest["split"].value_counts().reset_index()
                 sc.columns = ["Partition", "Count"]
@@ -724,7 +748,7 @@ with tab4:
                     x="Partition",
                     y="Count",
                     color="Partition",
-                    color_discrete_sequence=["#10b981", "#6366f1", "#f59e0b"],
+                    color_discrete_sequence=["#e05260", "#94a3b8", "#475569"],
                     text="Count",
                 )
                 fig_b.update_traces(textposition="outside")
@@ -734,7 +758,7 @@ with tab4:
     st.markdown("---")
     st.info(
         """
-        **Recorded anti-leakage protocol (requires a full-data rerun for current verification):**
+        **Recorded data-splitting safeguards:**
         - The original public Kaggle dataset contained only 16 validation images, which compromised hyperparameter validation.
         - The stored manifest records 4,432 train, 784 validation, and 624 holdout test rows.
         - Preprocessing scalers (StandardScaler) are fitted **strictly on training data**. Validation and test data are transformed only without re-fitting.
@@ -745,4 +769,4 @@ with tab4:
 # Footer
 # ---------------------------------------------------------------------------
 st.markdown("---")
-st.caption("Pneumonia Screening Research Prototype • Phase 1 Milestone • Educational Research Prototype • Not for clinical use")
+st.caption("Educational ML research prototype · Not for clinical use")
