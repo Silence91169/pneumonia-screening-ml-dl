@@ -1,40 +1,102 @@
 {
-  "hog_linear_svm": {
-    "best_params": {
-      "C": 0.01
+  "created_at_utc": "2026-11-15T17:13:20.779264+00:00",
+  "random_seed": 42,
+  "cv_folds": 5,
+  "scoring": "balanced_accuracy",
+  "test_split_used": false,
+  "medical_research_note": "Educational research prototype; not intended for clinical diagnosis or medical decision-making.",
+  "models": [
+    {
+      "model": "hog_linear_svm",
+      "feature_cache": "hog",
+      "class_weight": "balanced",
+      "positive_class": "PNEUMONIA",
+      "label_encoding": {
+        "0": "NORMAL",
+        "1": "PNEUMONIA"
+      },
+      "cv_folds": 5,
+      "cv_scoring": "balanced_accuracy",
+      "best_cv_balanced_accuracy": 0.9461712671243212,
+      "validation_balanced_accuracy": 0.9486230937934683,
+      "best_params": {
+        "C": 1.0
+      },
+      "search_seconds": 533.9120980000007,
+      "validation_fit_seconds": 77.76029874999949,
+      "calibration_fit_seconds": 0.06308220799837727,
+      "total_training_seconds": 611.7354789579986,
+      "base_fit_splits": [
+        "train"
+      ],
+      "calibration_fit_splits": [
+        "val"
+      ],
+      "calibration_method": "Platt sigmoid",
+      "artifact": "/Users/rajsingh/Documents/Codex/2026-11-15/files-pasted-by-the-user-urgent/pneumonia-screening-ml-dl/results/models/hog_linear_svm.joblib",
+      "test_split_used": false
     },
-    "best_cv_score": 0.9476,
-    "val_accuracy": 0.96,
-    "val_balanced_accuracy": 0.9625,
-    "val_sensitivity": 0.95,
-    "elapsed_seconds": 5.54,
-    "train_samples": 400,
-    "val_samples": 100
-  },
-  "hog_rbf_svm": {
-    "best_params": {
-      "C": 10.0,
-      "gamma": "scale"
+    {
+      "model": "hog_rbf_svm",
+      "feature_cache": "hog",
+      "class_weight": "balanced",
+      "positive_class": "PNEUMONIA",
+      "label_encoding": {
+        "0": "NORMAL",
+        "1": "PNEUMONIA"
+      },
+      "cv_folds": 5,
+      "cv_scoring": "balanced_accuracy",
+      "best_cv_balanced_accuracy": 0.9747928768422849,
+      "validation_balanced_accuracy": 0.9649181195224563,
+      "best_params": {
+        "C": 1.0,
+        "gamma": "scale"
+      },
+      "search_seconds": 2287.5243499999997,
+      "validation_fit_seconds": 6.9818427079990215,
+      "calibration_fit_seconds": 1.7786981250028475,
+      "total_training_seconds": 2296.2848908330016,
+      "base_fit_splits": [
+        "train"
+      ],
+      "calibration_fit_splits": [
+        "val"
+      ],
+      "calibration_method": "Platt sigmoid",
+      "artifact": "/Users/rajsingh/Documents/Codex/2026-11-15/files-pasted-by-the-user-urgent/pneumonia-screening-ml-dl/results/models/hog_rbf_svm.joblib",
+      "test_split_used": false
     },
-    "best_cv_score": 0.9521,
-    "val_accuracy": 0.97,
-    "val_balanced_accuracy": 0.9708,
-    "val_sensitivity": 0.9667,
-    "elapsed_seconds": 27.92,
-    "train_samples": 400,
-    "val_samples": 100
-  },
-  "hog_lbp_rbf_svm": {
-    "best_params": {
-      "C": 10.0,
-      "gamma": "scale"
-    },
-    "best_cv_score": 0.9549,
-    "val_accuracy": 0.97,
-    "val_balanced_accuracy": 0.9708,
-    "val_sensitivity": 0.9667,
-    "elapsed_seconds": 30.69,
-    "train_samples": 400,
-    "val_samples": 100
-  }
+    {
+      "model": "hog_lbp_rbf_svm",
+      "feature_cache": "combined",
+      "class_weight": "balanced",
+      "positive_class": "PNEUMONIA",
+      "label_encoding": {
+        "0": "NORMAL",
+        "1": "PNEUMONIA"
+      },
+      "cv_folds": 5,
+      "cv_scoring": "balanced_accuracy",
+      "best_cv_balanced_accuracy": 0.9749448525261754,
+      "validation_balanced_accuracy": 0.965775752455561,
+      "best_params": {
+        "C": 1.0,
+        "gamma": "scale"
+      },
+      "search_seconds": 3529.4544259999966,
+      "validation_fit_seconds": 7.507954790999065,
+      "calibration_fit_seconds": 1.7987334160061437,
+      "total_training_seconds": 3538.761114207002,
+      "base_fit_splits": [
+        "train"
+      ],
+      "calibration_fit_splits": [
+        "val"
+      ],
+      "calibration_method": "Platt sigmoid",
+      "artifact": "/Users/rajsingh/Documents/Codex/2026-11-15/files-pasted-by-the-user-urgent/pneumonia-screening-ml-dl/results/models/hog_lbp_rbf_svm.joblib",
+      "test_split_used": false
+    }
+  ]
 }
