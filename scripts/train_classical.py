@@ -137,6 +137,14 @@ def _json_value(value: Any) -> Any:
     return value
 
 
+def _portable_path(path: Path) -> str:
+    """Prefer repository-relative paths in exported provenance metadata."""
+    try:
+        return path.resolve().relative_to(PROJECT_ROOT.resolve()).as_posix()
+    except ValueError:
+        return str(path.resolve())
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     import joblib
@@ -196,7 +204,7 @@ def main(argv: list[str] | None = None) -> int:
             "base_fit_splits": ["train"],
             "calibration_fit_splits": ["val"],
             "calibration_method": "Platt sigmoid",
-            "artifact": str(artifact_path),
+            "artifact": _portable_path(artifact_path),
             "test_split_used": False,
         }
         records.append(record)

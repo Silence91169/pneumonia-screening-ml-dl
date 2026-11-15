@@ -45,4 +45,4 @@ The distributed filenames are not treated as reliable patient identifiers withou
 
 ## Audit is not preprocessing
 
-**DATASET AUDIT ≠ PREPROCESSING.** The audit reads source images to characterize and validate them; it does not transform them. Preprocessing and split-policy decisions belong to a later task and must follow the leakage rules in `AGENTS.md`.
+**DATASET AUDIT ≠ PREPROCESSING.** The audit reads source images to characterize and validate them; it does not transform them. Preprocessing and split-policy decisions are implemented separately by `scripts/prepare_data.py` and the settings in `configs/config.yaml`.

@@ -25,9 +25,9 @@
       "positive_class": "PNEUMONIA",
       "negative_class": "NORMAL",
       "disclaimer": "Educational research prototype \u2014 NOT intended for clinical diagnosis or medical decision-making.",
-      "model_artifact": "/Users/rajsingh/Documents/Codex/2026-11-15/files-pasted-by-the-user-urgent/pneumonia-screening-ml-dl/results/models/hog_linear_svm.joblib",
+      "model_artifact": "results/models/hog_linear_svm.joblib",
       "model_sha256": "3fa59469ef6e9bf5323baa7388384e5f883b3731a8bb9a4d43d39bd9d76bde8b",
-      "feature_cache": "/Users/rajsingh/Documents/Codex/2026-11-15/files-pasted-by-the-user-urgent/pneumonia-screening-ml-dl/data/processed/features_test_hog.npz",
+      "feature_cache": "data/processed/features_test_hog.npz",
       "feature_cache_sha256": "ac141c1cf28f98498e18d15c2241069a4e9368558d52d088e2ef43f27ec9c7f4",
       "evidence_type": "real held-out test feature cache"
     },
@@ -48,9 +48,9 @@
       "positive_class": "PNEUMONIA",
       "negative_class": "NORMAL",
       "disclaimer": "Educational research prototype \u2014 NOT intended for clinical diagnosis or medical decision-making.",
-      "model_artifact": "/Users/rajsingh/Documents/Codex/2026-11-15/files-pasted-by-the-user-urgent/pneumonia-screening-ml-dl/results/models/hog_rbf_svm.joblib",
+      "model_artifact": "results/models/hog_rbf_svm.joblib",
       "model_sha256": "4fd686f9c0ffeafcea1544a1a404990236be8d023c7b1d177539b3aecf8aa1a2",
-      "feature_cache": "/Users/rajsingh/Documents/Codex/2026-11-15/files-pasted-by-the-user-urgent/pneumonia-screening-ml-dl/data/processed/features_test_hog.npz",
+      "feature_cache": "data/processed/features_test_hog.npz",
       "feature_cache_sha256": "ac141c1cf28f98498e18d15c2241069a4e9368558d52d088e2ef43f27ec9c7f4",
       "evidence_type": "real held-out test feature cache"
     },
@@ -71,9 +71,9 @@
       "positive_class": "PNEUMONIA",
       "negative_class": "NORMAL",
       "disclaimer": "Educational research prototype \u2014 NOT intended for clinical diagnosis or medical decision-making.",
-      "model_artifact": "/Users/rajsingh/Documents/Codex/2026-11-15/files-pasted-by-the-user-urgent/pneumonia-screening-ml-dl/results/models/hog_lbp_rbf_svm.joblib",
+      "model_artifact": "results/models/hog_lbp_rbf_svm.joblib",
       "model_sha256": "872e930a1ba3e4bcdf0de2a1d36f98a22dd5e49a7367e7f72137c62d092ec9e4",
-      "feature_cache": "/Users/rajsingh/Documents/Codex/2026-11-15/files-pasted-by-the-user-urgent/pneumonia-screening-ml-dl/data/processed/features_test_combined.npz",
+      "feature_cache": "data/processed/features_test_combined.npz",
       "feature_cache_sha256": "7b9d809b89a265517f11c2a68f50dca5d85a5f43e146cb43bbd494681d4bbc23",
       "evidence_type": "real held-out test feature cache"
     }
