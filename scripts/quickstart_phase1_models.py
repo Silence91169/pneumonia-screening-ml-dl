@@ -31,6 +31,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.data.preprocess import standardize_image
 from src.features.hog import extract_hog_features
 from src.features.lbp import extract_lbp_features
+from src.evaluation.metrics import calibrate_classifier
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s")
 logger = logging.getLogger("quickstart_phase1")
@@ -112,14 +113,13 @@ def run():
         val_bal_acc = balanced_accuracy_score(y_val, val_preds)
         val_sens = recall_score(y_val, val_preds, pos_label=1)
 
-        # Refit best estimator on train + val
+        # Keep validation dedicated to probability calibration. The base SVM
+        # remains train-only so calibration data were not used to fit it.
         best_est = search.best_estimator_
-        X_all = np.vstack([X_tr, X_v])
-        y_all = np.concatenate([y_train, y_val])
-        best_est.fit(X_all, y_all)
+        calibrated_est = calibrate_classifier(best_est, X_v, y_val, method="sigmoid")
 
         model_path = MODEL_DIR / f"{name}.joblib"
-        joblib.dump(best_est, model_path)
+        joblib.dump(calibrated_est, model_path)
         elapsed = time.time() - t0
 
         logger.info("%s finished in %.1fs: Best Params %s, Val Bal-Acc: %.3f, Val Recall: %.3f",
@@ -134,6 +134,9 @@ def run():
             "elapsed_seconds": round(elapsed, 2),
             "train_samples": len(X_tr),
             "val_samples": len(X_v),
+            "base_fit_splits": ["train"],
+            "calibration_fit_splits": ["val"],
+            "test_split_used": False,
         }
 
     with open(METRICS_DIR / "classical_training.json", "w") as f:

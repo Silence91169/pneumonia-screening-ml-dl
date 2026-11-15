@@ -1,9 +1,8 @@
-"""Classical SVM model selection and training for the Phase 1 experiments.
+"""Classical SVM selection with a dedicated probability-calibration split.
 
-The final test split is deliberately outside this module's API. Hyperparameters
-are selected with stratified cross-validation on training data, checked once on
-validation data, and the selected estimator is then refit on train + validation
-for later final evaluation.
+Hyperparameters are selected only inside the training partition.  The selected
+base estimator is fitted on training data and Platt-calibrated on validation
+data.  The held-out test partition is deliberately outside this module's API.
 """
 
 from __future__ import annotations
@@ -28,13 +27,13 @@ class ClassicalTrainingResult:
     """Selected estimator and measurements from one training run."""
 
     name: ModelName
-    estimator: SVC | LinearSVC
+    estimator: Any
     best_params: dict[str, Any]
     best_cv_score: float
     validation_score: float
     search_seconds: float
     validation_fit_seconds: float
-    final_fit_seconds: float
+    calibration_fit_seconds: float
     cv_folds: int
 
 
@@ -67,11 +66,12 @@ def fit_and_select(
     cv_folds: int = 5,
     n_jobs: int = 1,
 ) -> ClassicalTrainingResult:
-    """Tune on train folds, score on validation, then refit on train + val.
+    """Tune on train folds, fit on train, then calibrate on validation.
 
     ``balanced_accuracy`` gives equal weight to Normal and Pneumonia recall,
     which is appropriate for the imbalanced classes in this project. The
-    validation arrays are not passed to GridSearchCV.
+    validation arrays are not passed to GridSearchCV and the base model never
+    trains on them.  This makes validation a dedicated calibration partition.
     """
     X_train = np.asarray(X_train)
     y_train = np.asarray(y_train).reshape(-1)
@@ -118,23 +118,20 @@ def fit_and_select(
     validation_fit_seconds = time.perf_counter() - validation_fit_started
     validation_score = float(balanced_accuracy_score(y_val, selected.predict(X_val)))
 
-    X_final = np.concatenate((X_train, X_val), axis=0)
-    y_final = np.concatenate((y_train, y_val), axis=0)
-    final_estimator = make_estimator(name).set_params(**best_params)
-    if name == "hog_linear_svm":
-        final_estimator.set_params(random_state=random_seed)
+    from src.evaluation.metrics import calibrate_classifier
+
     fit_started = time.perf_counter()
-    final_estimator.fit(X_final, y_final)
-    final_fit_seconds = time.perf_counter() - fit_started
+    calibrated_estimator = calibrate_classifier(selected, X_val, y_val, method="sigmoid")
+    calibration_fit_seconds = time.perf_counter() - fit_started
 
     return ClassicalTrainingResult(
         name=name,
-        estimator=final_estimator,
+        estimator=calibrated_estimator,
         best_params=best_params,
         best_cv_score=float(search.best_score_),
         validation_score=validation_score,
         search_seconds=search_seconds,
         validation_fit_seconds=validation_fit_seconds,
-        final_fit_seconds=final_fit_seconds,
+        calibration_fit_seconds=calibration_fit_seconds,
         cv_folds=cv_folds,
     )

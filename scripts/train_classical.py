@@ -189,11 +189,13 @@ def main(argv: list[str] | None = None) -> int:
             "best_params": _json_value(result.best_params),
             "search_seconds": result.search_seconds,
             "validation_fit_seconds": result.validation_fit_seconds,
-            "final_fit_seconds": result.final_fit_seconds,
+            "calibration_fit_seconds": result.calibration_fit_seconds,
             "total_training_seconds": (
-                result.search_seconds + result.validation_fit_seconds + result.final_fit_seconds
+                result.search_seconds + result.validation_fit_seconds + result.calibration_fit_seconds
             ),
-            "final_fit_splits": ["train", "val"],
+            "base_fit_splits": ["train"],
+            "calibration_fit_splits": ["val"],
+            "calibration_method": "Platt sigmoid",
             "artifact": str(artifact_path),
             "test_split_used": False,
         }

@@ -297,30 +297,19 @@ class TestEvaluationPlots:
 class TestEvaluateScript:
     """Tests for the evaluate.py CLI workflow."""
 
-    def test_evaluate_all_models_workflow(self) -> None:
-        """Verify end-to-end evaluation runner execution and artifact export."""
+    def test_missing_artifacts_fail_without_writing_metrics(self) -> None:
+        """Synthetic fallback must never create official metrics."""
         with tempfile.TemporaryDirectory() as tmp_dir:
             out_dir = Path(tmp_dir) / "results"
             dummy_models = Path(tmp_dir) / "models"
             dummy_features = Path(tmp_dir) / "features"
 
-            df_comp, json_res = evaluate_all_models(
-                models_dir=dummy_models,
-                feature_dir=dummy_features,
-                output_dir=out_dir,
-                generate_plots=True,
-                dpi=100,  # fast test DPI
-            )
-
-            assert len(df_comp) == 3
-            assert (out_dir / "metrics" / "model_comparison.csv").is_file()
-            assert (out_dir / "metrics" / "model_comparison.json").is_file()
-            assert (out_dir / "figures" / "roc_curves_comparison.png").is_file()
-            assert (out_dir / "figures" / "calibration_curves.png").is_file()
-            assert (out_dir / "figures" / "hog_overlay_samples.png").is_file()
-            assert (out_dir / "figures" / "confusion_matrix_hog_linear_svm.png").is_file()
-
-            # Verify mandatory disclaimer in outputs
-            csv_text = (out_dir / "metrics" / "model_comparison.csv").read_text(encoding="utf-8")
-            assert DISCLAIMER in csv_text
-            assert json_res["metadata"]["disclaimer"] == DISCLAIMER
+            with pytest.raises(FileNotFoundError, match="No metrics were written"):
+                evaluate_all_models(
+                    models_dir=dummy_models,
+                    feature_dir=dummy_features,
+                    output_dir=out_dir,
+                    generate_plots=True,
+                    dpi=100,
+                )
+            assert not (out_dir / "metrics").exists()
