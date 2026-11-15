@@ -148,7 +148,12 @@ def predict_loader(model: nn.Module, loader: DataLoader, device: torch.device):
 
 
 def grad_cam(model: ChestXrayClassifier, input_tensor: torch.Tensor) -> np.ndarray:
-    """Return a normalized Grad-CAM heatmap for one BCHW input."""
+    """Return Grad-CAM for the positive-class pneumonia logit.
+
+    ``get_target_layer_for_cam`` resolves to ResNet18 layer4's final basic
+    block ``conv2``. The returned map is attribution, not segmentation or a
+    calibrated measure of anatomical importance.
+    """
     if input_tensor.ndim != 4 or input_tensor.shape[0] != 1:
         raise ValueError("Grad-CAM expects a single BCHW input")
     # A frozen backbone has no trainable parameters, so its intermediate
@@ -163,7 +168,10 @@ def grad_cam(model: ChestXrayClassifier, input_tensor: torch.Tensor) -> np.ndarr
     backward_handle = layer.register_full_backward_hook(lambda _m, _gi, go: gradients.append(go[0]))
     try:
         model.zero_grad(set_to_none=True)
-        model(input_tensor).squeeze().backward()
+        pneumonia_logit = model(input_tensor).squeeze()
+        if pneumonia_logit.numel() != 1:
+            raise ValueError("Grad-CAM requires one binary pneumonia logit.")
+        pneumonia_logit.backward()
         weights = gradients[0].mean(dim=(2, 3), keepdim=True)
         cam = torch.relu((weights * activations[0]).sum(dim=1, keepdim=True))
         cam = torch.nn.functional.interpolate(cam, input_tensor.shape[-2:], mode="bilinear", align_corners=False)

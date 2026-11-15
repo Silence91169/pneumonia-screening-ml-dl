@@ -35,6 +35,13 @@ from src.features.hog import extract_hog_features
 from src.features.lbp import extract_lbp_features
 from src.models.cnn_pipeline import grad_cam, image_transform
 from src.models.deep_learning import ChestXrayClassifier
+from src.models.inference_ui import (
+    classify_pneumonia_probability,
+    gradcam_visuals,
+    inference_identity,
+    persist_result,
+    valid_persisted_result,
+)
 
 # ---------------------------------------------------------------------------
 # Streamlit App Configuration & Premium Clinical UI Styling
@@ -346,7 +353,7 @@ def dataset_image_picker(key_prefix: str = "main") -> tuple[Path | None, dict | 
     with col_s3:
         st.write("")
         st.write("")
-        rand_click = st.button("Choose random image", key=f"{key_prefix}_btn_rand", use_container_width=True)
+        rand_click = st.button("Choose random image", key=f"{key_prefix}_btn_rand", width="stretch")
 
     # Filter records
     df = manifest.copy()
@@ -370,25 +377,29 @@ def dataset_image_picker(key_prefix: str = "main") -> tuple[Path | None, dict | 
         st.warning("No records match the active filter. Displaying full test split.")
         df = manifest[manifest["split"] == "test"]
 
-    # Session state for random selection
-    idx_key = f"{key_prefix}_selected_idx"
-    if rand_click or idx_key not in st.session_state:
-        st.session_state[idx_key] = int(np.random.randint(0, len(df)))
-
-    # Bounds check
-    curr_idx = min(st.session_state.get(idx_key, 0), len(df) - 1)
-
     labels = [
         f"[{row['split'].upper()}] {Path(row['image_path']).name} — {row['label']}"
         for _, row in df.iterrows()
     ]
     paths = df["image_path"].tolist()
 
+    # Synchronize both the numeric index and Streamlit's keyed selectbox value.
+    # Updating only the index leaves the keyed widget on its previous image.
+    idx_key = f"{key_prefix}_selected_idx"
+    dropdown_key = f"{key_prefix}_dropdown"
+    if rand_click or idx_key not in st.session_state:
+        st.session_state[idx_key] = int(np.random.randint(0, len(df)))
+        st.session_state[dropdown_key] = labels[st.session_state[idx_key]]
+
+    curr_idx = min(st.session_state.get(idx_key, 0), len(df) - 1)
+    if st.session_state.get(dropdown_key) not in labels:
+        st.session_state[dropdown_key] = labels[curr_idx]
+
     chosen_label = st.selectbox(
         f"Choose an X-ray ({len(df):,} available)",
         labels,
         index=curr_idx,
-        key=f"{key_prefix}_dropdown",
+        key=dropdown_key,
     )
     chosen_pos = labels.index(chosen_label)
     st.session_state[idx_key] = chosen_pos
@@ -514,7 +525,7 @@ with tab1:
         col_view, col_ctrl = st.columns([1.1, 1.3])
 
         with col_view:
-            st.image(std_img, caption="Prepared image · 224 × 224 grayscale", clamp=True, use_container_width=True)
+            st.image(std_img, caption="Prepared image · 224 × 224 grayscale", clamp=True, width="stretch")
             if ground_truth:
                 st.info(f"Reference label: **{ground_truth}**")
 
@@ -538,41 +549,47 @@ with tab1:
                 max_value=0.90,
                 value=0.45,
                 step=0.05,
-                help="A lower threshold labels more images as pneumonia. This changes the sensitivity-specificity trade-off.",
+                help=(
+                    "The model probability stays fixed. Only the class boundary changes: "
+                    "probability greater than or equal to the threshold predicts PNEUMONIA."
+                ),
+            )
+            st.caption(
+                "The threshold changes the displayed class, not the model output. "
+                "Example: a 70% pneumonia probability predicts PNEUMONIA at 0.50 "
+                "and NORMAL at 0.90. Exact equality is classified as PNEUMONIA."
             )
 
-            # Guaranteed working action button
-            run_btn = st.button("Run analysis", type="primary", use_container_width=True)
+            result_identity = inference_identity(raw_model_name, std_img)
+            stored_result = valid_persisted_result(st.session_state, result_identity)
+            run_btn = st.button("Run analysis", type="primary", width="stretch")
 
             if run_btn:
                 if raw_model_name == "resnet18":
                     if resnet_model is None:
                         st.error("The verified ResNet18 checkpoint is unavailable. No prediction was generated.")
-                        st.stop()
-                    import torch
+                    else:
+                        import torch
 
-                    with st.spinner("Running ResNet18 inference and Grad-CAM..."):
-                        t_start = time.time()
-                        with Image.open(image_path) as source_image:
-                            tensor = image_transform(False)(source_image.convert("L")).unsqueeze(0)
-                        with torch.no_grad():
-                            prob = float(torch.sigmoid(resnet_model(tensor)).item())
-                        cam = grad_cam(resnet_model, tensor)
-                        latency = (time.time() - t_start) * 1000
-                    is_pneumonia = prob >= threshold
-                    st.markdown("---")
-                    badge_class = "badge-positive" if is_pneumonia else "badge-negative"
-                    label = "Pneumonia pattern predicted" if is_pneumonia else "Normal pattern predicted"
-                    st.markdown(
-                        f'<div class="{badge_class}"><div class="result-label">Research prediction</div>{label}<br>{prob*100:.1f}% model probability</div>',
-                        unsafe_allow_html=True,
-                    )
-                    st.progress(float(prob))
-                    st.caption(
-                        f"ResNet18 epoch {resnet_metadata['epoch']} checkpoint • "
-                        f"{latency:.1f} ms • cutoff {threshold*100:.0f}%"
-                    )
-                    st.image(cam, caption="Grad-CAM attribution for the ResNet18 pneumonia logit", clamp=True)
+                        with st.spinner("Running ResNet18 inference and Grad-CAM..."):
+                            t_start = time.time()
+                            with Image.open(image_path) as source_image:
+                                tensor = image_transform(False)(source_image.convert("L")).unsqueeze(0)
+                            with torch.no_grad():
+                                prob = float(torch.sigmoid(resnet_model(tensor)).item())
+                            cam = grad_cam(resnet_model, tensor)
+                            overlay, colorized_cam = gradcam_visuals(std_img, cam)
+                            latency = (time.time() - t_start) * 1000
+                        persist_result(st.session_state, {
+                            "identity": result_identity,
+                            "model_name": raw_model_name,
+                            "pneumonia_probability": prob,
+                            "latency_ms": latency,
+                            "gradcam": cam,
+                            "gradcam_overlay": overlay,
+                            "gradcam_colorized": colorized_cam,
+                        })
+                        stored_result = valid_persisted_result(st.session_state, result_identity)
                 else:
                     clf = models.get(raw_model_name)
                     if clf and "hog" in scalers and "lbp" in scalers:
@@ -588,36 +605,64 @@ with tab1:
                             X_in = comb_s if raw_model_name == "hog_lbp_rbf_svm" else h_s
                             prob = float(clf.predict_proba(X_in)[0, 1])
                             latency = (time.time() - t_start) * 1000
-                            is_pneumonia = prob >= threshold
-
-                        st.markdown("---")
-                        if is_pneumonia:
-                            st.markdown(
-                                f'<div class="badge-positive"><div class="result-label">Research prediction</div>Pneumonia pattern predicted<br>{prob*100:.1f}% calibrated probability</div>',
-                                unsafe_allow_html=True,
-                            )
-                        else:
-                            st.markdown(
-                                f'<div class="badge-negative"><div class="result-label">Research prediction</div>Normal pattern predicted<br>{prob*100:.1f}% calibrated probability</div>',
-                                unsafe_allow_html=True,
-                            )
-
-                        st.progress(float(prob))
-                        st.caption(f"Processing time: {latency:.1f} ms · Decision threshold: {threshold*100:.0f}%")
-
-                        st.markdown("---")
-                        st.markdown("### Feature views")
-                        _, hog_vis = compute_hog_vis(std_img)
-                        saliency = compute_edge_density_overlay(std_img, alpha=0.45)
-
-                        v1, v2 = st.columns(2)
-                        v1.image(hog_vis, caption="HOG Gradient Vector Field (6,084 dims)", clamp=True, use_container_width=True)
-                        v2.image(saliency, caption="Edge-density visualization (not model attribution)", use_container_width=True)
+                        persist_result(st.session_state, {
+                            "identity": result_identity,
+                            "model_name": raw_model_name,
+                            "pneumonia_probability": prob,
+                            "latency_ms": latency,
+                        })
+                        stored_result = valid_persisted_result(st.session_state, result_identity)
                     else:
                         st.error(
                             "A validation-calibrated model and matching train-fitted scalers are unavailable. "
                             "No prediction was generated."
                         )
+
+            if stored_result is not None:
+                prob = float(stored_result["pneumonia_probability"])
+                normal_prob = 1.0 - prob
+                is_pneumonia = classify_pneumonia_probability(prob, threshold)
+                badge_class = "badge-positive" if is_pneumonia else "badge-negative"
+                label = "Pneumonia pattern predicted" if is_pneumonia else "Normal pattern predicted"
+                st.markdown("---")
+                st.markdown(
+                    f'<div class="{badge_class}"><div class="result-label">Research prediction</div>'
+                    f'{label}<br>Pneumonia probability: {prob*100:.1f}%<br>'
+                    f'Normal probability: {normal_prob*100:.1f}%</div>',
+                    unsafe_allow_html=True,
+                )
+                st.progress(prob)
+                st.caption(
+                    f"Model output, not clinical certainty · Decision rule: pneumonia probability "
+                    f"≥ {threshold:.2f} predicts PNEUMONIA · Inference time: "
+                    f"{float(stored_result['latency_ms']):.1f} ms"
+                )
+
+                if raw_model_name == "resnet18":
+                    st.markdown("### Grad-CAM attribution")
+                    st.caption(
+                        "Computed from the pneumonia logit at ResNet18 layer4's final conv2. "
+                        "Color shows relative influence, not a lesion boundary or clinical localization."
+                    )
+                    g1, g2, g3 = st.columns(3)
+                    g1.image(std_img, caption="Original prepared X-ray", clamp=True, width="stretch")
+                    g2.image(
+                        stored_result["gradcam_overlay"],
+                        caption="Aligned Grad-CAM overlay",
+                        width="stretch",
+                    )
+                    g3.image(
+                        stored_result["gradcam_colorized"],
+                        caption="Raw colorized attribution",
+                        width="stretch",
+                    )
+                else:
+                    st.markdown("### Feature views")
+                    _, hog_vis = compute_hog_vis(std_img)
+                    saliency = compute_edge_density_overlay(std_img, alpha=0.45)
+                    v1, v2 = st.columns(2)
+                    v1.image(hog_vis, caption="HOG Gradient Vector Field (6,084 dims)", clamp=True, width="stretch")
+                    v2.image(saliency, caption="Edge-density visualization (not model attribution)", width="stretch")
 
 # ===========================================================================
 # TAB 2: Handcrafted Feature Engineering Lab (Interactive Parameters)
@@ -650,9 +695,9 @@ with tab2:
         t_lbp = (time.time() - t1) * 1000
 
         c_img1, c_img2, c_img3 = st.columns(3)
-        c_img1.image(std_f, caption="Input Radiograph (224×224)", clamp=True, use_container_width=True)
-        c_img2.image(h_vis, caption=f"HOG Vector Field ({len(h_f):,} dims, {t_hog:.1f}ms)", clamp=True, use_container_width=True)
-        c_img3.image(l_vis, caption=f"LBP Texture Map ({len(l_hist)} bins, {t_lbp:.1f}ms)", clamp=True, use_container_width=True)
+        c_img1.image(std_f, caption="Input Radiograph (224×224)", clamp=True, width="stretch")
+        c_img2.image(h_vis, caption=f"HOG Vector Field ({len(h_f):,} dims, {t_hog:.1f}ms)", clamp=True, width="stretch")
+        c_img3.image(l_vis, caption=f"LBP Texture Map ({len(l_hist)} bins, {t_lbp:.1f}ms)", clamp=True, width="stretch")
 
         st.markdown("---")
         st.markdown("### Feature distributions")
@@ -661,12 +706,12 @@ with tab2:
             st.caption(f"HOG Descriptor Profile (First 60 of {len(h_f):,} features):")
             fig_h = px.line(h_f[:60], labels={"index": "Index", "value": "Magnitude"})
             fig_h.update_layout(height=210, margin=dict(t=10, b=10, l=10, r=10))
-            st.plotly_chart(fig_h, use_container_width=True)
+            st.plotly_chart(fig_h, width="stretch")
         with d_col2:
             st.caption(f"Uniform LBP Texture Histogram ({len(l_hist)} Bins):")
             fig_l = px.bar(x=[f"B{i}" for i in range(len(l_hist))], y=l_hist, labels={"x": "Bin", "y": "Freq"})
             fig_l.update_layout(height=210, margin=dict(t=10, b=10, l=10, r=10))
-            st.plotly_chart(fig_l, use_container_width=True)
+            st.plotly_chart(fig_l, width="stretch")
 
 # ===========================================================================
 # TAB 3: Model Performance & Clinical Thresholds
@@ -690,7 +735,7 @@ with tab3:
                 "ROC-AUC": f"{d.get('roc_auc', 0):.3f}",
                 "Brier Score": f"{d.get('brier_score', 0):.3f}",
             })
-        st.dataframe(pd.DataFrame(rows), use_container_width=True)
+        st.dataframe(pd.DataFrame(rows), width="stretch")
 
         st.markdown("---")
         st.markdown("### Interpreting the threshold")
@@ -736,7 +781,7 @@ with tab3:
                 hole=0.45,
             )
             fig_p.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=260)
-            st.plotly_chart(fig_p, use_container_width=True)
+            st.plotly_chart(fig_p, width="stretch")
 
         with g2:
             st.markdown("### Modeling splits")
@@ -753,7 +798,7 @@ with tab3:
                 )
                 fig_b.update_traces(textposition="outside")
                 fig_b.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=260)
-                st.plotly_chart(fig_b, use_container_width=True)
+                st.plotly_chart(fig_b, width="stretch")
 
     st.markdown("---")
     st.info(

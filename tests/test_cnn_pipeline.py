@@ -32,3 +32,8 @@ def test_resnet18_grad_cam_smoke() -> None:
     assert heatmap.shape == (64, 64)
     assert np.isfinite(heatmap).all()
     assert heatmap.min() >= 0.0 and heatmap.max() <= 1.0
+
+
+def test_resnet18_grad_cam_targets_final_layer4_conv2() -> None:
+    model = ChestXrayClassifier("resnet18", pretrained=False, freeze_backbone=True)
+    assert model.get_target_layer_for_cam() is model.features[-1][-1].conv2
