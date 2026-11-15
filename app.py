@@ -185,10 +185,12 @@ def load_classical_training_metrics():
 
 @st.cache_data
 def load_test_benchmark():
-    path = PROJECT_ROOT / "results" / "metrics" / "test_benchmark_metrics.json"
+    path = PROJECT_ROOT / "results" / "metrics" / "model_comparison.json"
     if path.is_file():
         with open(path, "r") as f:
-            return json.load(f)
+            payload = json.load(f)
+        if payload.get("metadata", {}).get("evidence_type") == "real held-out test features; synthetic fallback prohibited":
+            return payload.get("models", {})
     return None
 
 @st.cache_resource
@@ -199,7 +201,11 @@ def load_classical_models():
     for name in ["hog_linear_svm", "hog_rbf_svm", "hog_lbp_rbf_svm"]:
         p = models_dir / f"{name}.joblib"
         if p.is_file():
-            loaded[name] = joblib.load(p)
+            candidate = joblib.load(p)
+            # Official UI probabilities require the validation-calibrated
+            # artifacts created by scripts/train_classical.py.
+            if candidate.__class__.__name__ == "CalibratedClassifierCV":
+                loaded[name] = candidate
 
     hog_sc = models_dir / "hog_scaler.joblib"
     lbp_sc = models_dir / "lbp_scaler.joblib"
@@ -235,7 +241,8 @@ def compute_lbp_vis(image, P=8, R=1.0, method="uniform"):
     vis = lbp_map / (lbp_map.max() + 1e-8)
     return vis.astype(np.float32), hist
 
-def compute_saliency_overlay(image, alpha=0.45):
+def compute_edge_density_overlay(image, alpha=0.45):
+    """Render Sobel edge density; this is not a model attribution method."""
     smoothed = cv2.GaussianBlur(image, (15, 15), 0)
     gx = cv2.Sobel(smoothed, cv2.CV_32F, 1, 0, ksize=3)
     gy = cv2.Sobel(smoothed, cv2.CV_32F, 0, 1, ksize=3)
@@ -345,7 +352,7 @@ st.markdown(
     <div class="hero-container">
         <div class="hero-title">🫁 Pneumonia Screening Research Prototype</div>
         <div class="hero-sub">Phase 1: Handcrafted Feature Engineering (HOG & LBP) with Class-Balanced Support Vector Machines</div>
-        <span class="status-pill">● System Active • 5,840 Radiographs Indexed • Phase 1 Baseline Models Live</span>
+        <span class="status-pill">● Educational research dashboard • Artifact availability checked at runtime</span>
     </div>
     <div class="disclaimer-box">
         <strong>⚠️ MANDATORY MEDICAL & RESEARCH DISCLAIMER:</strong> This platform is an educational machine learning research prototype.
@@ -439,6 +446,7 @@ with tab1:
                     "HOG + Linear SVM (hog_linear_svm)",
                     "HOG + RBF SVM (hog_rbf_svm)",
                     "HOG + LBP + RBF SVM (hog_lbp_rbf_svm)",
+                    "ResNet18 transfer learning (resnet18)",
                 ],
                 index=0,
             )
@@ -457,6 +465,12 @@ with tab1:
             run_btn = st.button("🚀 Execute Clinical Screening Call", type="primary", use_container_width=True)
 
             if run_btn:
+                if raw_model_name == "resnet18":
+                    st.warning(
+                        "No verified ResNet18 checkpoint is bundled. Train with scripts/train_cnn.py; "
+                        "the app will not fabricate a CNN prediction."
+                    )
+                    st.stop()
                 clf = models.get(raw_model_name)
                 if clf and "hog" in scalers and "lbp" in scalers:
                     with st.spinner("Extracting features and predicting..."):
@@ -500,13 +514,16 @@ with tab1:
                     st.markdown("---")
                     st.markdown("##### 🔍 Interpretability & Feature Activations")
                     _, hog_vis = compute_hog_vis(std_img)
-                    saliency = compute_saliency_overlay(std_img, alpha=0.45)
+                    saliency = compute_edge_density_overlay(std_img, alpha=0.45)
 
                     v1, v2 = st.columns(2)
                     v1.image(hog_vis, caption="HOG Gradient Vector Field (6,084 dims)", clamp=True, use_container_width=True)
-                    v2.image(saliency, caption="Saliency Density Heatmap", use_container_width=True)
+                    v2.image(saliency, caption="Edge-density visualization (not model attribution)", use_container_width=True)
                 else:
-                    st.error("Trained models or scalers not found. Run scripts/quickstart_phase1_models.py.")
+                    st.error(
+                        "A validation-calibrated model and matching scalers are unavailable. "
+                        "Run feature extraction and scripts/train_classical.py. No prediction was generated."
+                    )
 
 # ===========================================================================
 # TAB 2: Handcrafted Feature Engineering Lab (Interactive Parameters)
@@ -561,7 +578,7 @@ with tab2:
 # ===========================================================================
 with tab3:
     st.markdown("#### 📊 Clinical Screening Performance Benchmark")
-    st.caption("Quantitative validation on the untouched held-out test split (PNEUMONIA = Positive class).")
+    st.caption("Only provenance-verified held-out results appear here (PNEUMONIA = positive class).")
 
     bench = load_test_benchmark()
     train_meta = load_classical_training_metrics()
@@ -585,6 +602,11 @@ with tab3:
         st.markdown(
             "In clinical screening, **minimizing False Negatives (FN)** is the primary objective. "
             "Adjust the slider to evaluate how shifting the operating threshold impacts the sensitivity-specificity trade-off:"
+        )
+    else:
+        st.warning(
+            "No verified held-out benchmark is available. Legacy 120-sample files were excluded because "
+            "their predictions were generated synthetically when real feature caches were absent."
         )
 
         thresh_val = st.slider("Operating Threshold:", 0.05, 0.95, 0.40, 0.05, key="tab3_th")
